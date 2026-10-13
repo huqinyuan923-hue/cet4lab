@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --c-bg: 247 247 245;
+  --c-surface: 255 255 255;
+  --c-surface-2: 243 244 246;
+  --c-text: 23 23 23;
+  --c-muted: 113 113 122;
+  --c-border: 228 228 231;
+  --c-brand: 79 70 229;
+  --c-brand-soft: 238 238 255;
+  --c-ok: 5 150 105;
+  --c-bad: 225 29 72;
+  --c-warn: 217 119 6;
+}
+
+.dark {
+  --c-bg: 9 11 17;
+  --c-surface: 17 21 30;
+  --c-surface-2: 24 29 40;
+  --c-text: 232 234 237;
+  --c-muted: 148 156 170;
+  --c-border: 39 46 60;
+  --c-brand: 129 140 248;
+  --c-brand-soft: 30 33 66;
+  --c-ok: 52 211 153;
+  --c-bad: 251 113 133;
+  --c-warn: 251 191 36;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-bg text-ink antialiased;
+  font-feature-settings: 'tnum' 0;
+}
+
+::selection {
+  background: rgb(var(--c-brand) / 0.22);
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl2 border border-line bg-surface shadow-card;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-xs text-muted;
+  }
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink transition
+      hover:border-brand/50 hover:text-brand active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply border-transparent bg-brand text-white hover:bg-brand/90 hover:text-white dark:text-[rgb(9_11_17)];
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-muted hover:bg-surface-2 hover:text-ink;
+  }
+  .link {
+    @apply text-brand underline-offset-4 hover:underline;
+  }
+  .prose-en {
+    @apply font-serif text-[1.02rem] leading-[1.85] tracking-[0.002em];
+  }
+  .field {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none transition focus:border-brand;
+  }
+}
+
+/* 文章段落首行缩进取消，段落间距由 P 标记渲染控制 */
+.passage-paragraph {
+  @apply mb-4 whitespace-pre-wrap;
+}
+
+/* 题库原文里的空格/换行保真 */
+.preserve {
+  white-space: pre-wrap;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
