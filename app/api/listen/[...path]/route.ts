@@ -1,13 +1,20 @@
 /**
- * 听力音频 Edge 代理（BUILD-PLAN.md §6 P1-3）。
+ * 听力音频代理（BUILD-PLAN.md §6 P1-3）。
  * 源 CDN（腾讯 COS）未配置跨域：GET 无 ACAO 头且 OPTIONS 预检 403，
  * 因此非 Safari 浏览器必须经本代理同源转发。仅转发，不落盘、不缓存到磁盘。
+ *
+ * 运行时说明：源站 CDN 只服务国内线路，境外云出口连接超时（实测 522/504），
+ * 因此固定用 Node 运行时并把执行区域钉在香港（hkg1），保证出口稳定可通。
  */
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+export const preferredRegion = ['hkg1'];
+export const maxDuration = 30;
 
 const ALLOWED_HOST = 'listening.lazynote.cn';
 /** 仅允许 /cet4/<数字>/<文件名> 形态 */
 const PATH_RE = /^\/cet4\/\d{1,6}\/[A-Za-z0-9._/-]+$/;
+/** 上游单次请求超时：宁可早点失败让播放器走兜底，也不让用户干等 */
+const UPSTREAM_TIMEOUT_MS = 12_000;
 
 const cors = { 'Access-Control-Allow-Origin': '*' };
 
@@ -20,6 +27,22 @@ export async function OPTIONS() {
     status: 204,
     headers: { ...cors, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Range, Content-Type' },
   });
+}
+
+async function fetchUpstream(target: string, range: string | null): Promise<Response | 'timeout' | 'unreachable'> {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    return await fetch(target, {
+      headers: range ? { Range: range } : undefined,
+      redirect: 'manual', // 不跟随重定向，避免被引到非白名单主机
+      signal: ac.signal,
+    });
+  } catch (e) {
+    return (e as Error)?.name === 'AbortError' ? 'timeout' : 'unreachable';
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
@@ -38,16 +61,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
   }
   if (target.host !== ALLOWED_HOST) return bad(403, 'host not allowed');
 
-  const range = req.headers.get('range');
-  let upstream: Response;
-  try {
-    upstream = await fetch(target.toString(), {
-      headers: range ? { Range: range } : undefined,
-      redirect: 'manual', // 不跟随重定向，避免被引到非白名单主机
-    });
-  } catch {
-    return bad(502, 'upstream unreachable');
-  }
+  const upstream = await fetchUpstream(target.toString(), req.headers.get('range'));
+  if (upstream === 'timeout') return bad(504, 'upstream timeout');
+  if (upstream === 'unreachable') return bad(502, 'upstream unreachable');
 
   if (upstream.status >= 300 && upstream.status < 400) return bad(502, 'upstream redirect blocked');
   if (!upstream.ok && upstream.status !== 206) {
@@ -100,7 +116,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
   if (len) headers.set('Content-Length', len);
   if (cr) headers.set('Content-Range', cr);
   for (const [k, v] of Object.entries(cors)) headers.set(k, v);
-  headers.set('Cache-Control', 'public, max-age=86400, immutable');
+  headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, immutable');
 
   return new Response(upstream.body, { status: upstream.status, headers });
 }
