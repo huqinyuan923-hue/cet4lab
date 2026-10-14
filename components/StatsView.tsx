@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { aggregate, exportAll, getCheckins, getMistakes, getWordbook, importAll, today, wipeAll, type Aggregate } from '@/lib/storage';
+import { aggregate, allProgress, exportAll, getCheckins, getMistakes, getWordbook, importAll, wipeAll, type Aggregate } from '@/lib/storage';
+import { calcStreak, heatmapCells } from '@/lib/stats';
 import { PART_LABEL, PART_ORDER } from '@/lib/paper';
 import { Icons, cn } from '@/components/ui';
 
@@ -26,20 +27,19 @@ export default function StatsView() {
     return () => window.removeEventListener('cet4:changed', refresh);
   }, []);
 
-  const streak = useMemo(() => {
-    const set = new Set(checkins);
-    let n = 0;
-    const d = new Date();
-    if (!set.has(today())) d.setDate(d.getDate() - 1); // 今天还没打卡不算断
-    for (;;) {
-      const p = (x: number) => String(x).padStart(2, '0');
-      const key = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-      if (!set.has(key)) break;
-      n++;
-      d.setDate(d.getDate() - 1);
+  const streak = useMemo(() => calcStreak(checkins), [checkins]);
+
+  /** 需要重点复习的套卷：已交卷且有得分的卷子里正确率最低的几套 */
+  const weakest = useMemo(() => {
+    const rows: { id: string; c: number; t: number; pct: number }[] = [];
+    for (const [id, p] of Object.entries(allProgress())) {
+      if (p.status !== 'done' || !p.score) continue;
+      const { c, t } = p.score.total;
+      if (!t) continue;
+      rows.push({ id, c, t, pct: Math.round((c / t) * 100) });
     }
-    return n;
-  }, [checkins]);
+    return rows.sort((a, b) => a.pct - b.pct).slice(0, 5);
+  }, [agg]);
 
   const totalAnswered = agg?.answeredQuestions ?? 0;
   const acc = useMemo(() => {
@@ -115,36 +115,49 @@ export default function StatsView() {
         )}
       </section>
 
+      <WeakestPapers rows={weakest} />
+
       <DataTransfer />
     </div>
+  );
+}
+
+/** 正确率最低的几套卷：给出明确的复习指向 */
+function WeakestPapers({ rows }: { rows: { id: string; c: number; t: number; pct: number }[] }) {
+  if (!rows.length) return null;
+  return (
+    <section className="card p-4 sm:p-5">
+      <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
+        <Icons.Star className="h-4 w-4 text-brand" />
+        需要重点复习的套卷
+      </h2>
+      <p className="mb-3 text-xs text-muted">按已交卷套卷的正确率从低到高排序，建议优先二刷。</p>
+      <ul className="space-y-2">
+        {rows.map((r) => (
+          <li key={r.id}>
+            <a href={`/papers/${r.id}`} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition hover:border-brand/50">
+              <span className="font-mono text-sm">{r.id}</span>
+              <span className="text-xs text-muted">
+                {r.c}/{r.t}
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <span className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-2">
+                  <span className={cn('block h-full rounded-full', r.pct >= 70 ? 'bg-ok' : r.pct >= 50 ? 'bg-warn' : 'bg-bad')} style={{ width: `${r.pct}%` }} />
+                </span>
+                <span className="w-9 text-right text-xs text-muted">{r.pct}%</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 const WEEKS = 12;
 
 function Heatmap({ days }: { days: string[] }) {
-  const counts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const d of days) m[d] = (m[d] || 0) + 1;
-    return m;
-  }, [days]);
-
-  const cells = useMemo(() => {
-    const out: { key: string; count: number; label: string }[] = [];
-    const end = new Date();
-    // 对齐到本周周日
-    end.setDate(end.getDate() + (6 - end.getDay()));
-    const start = new Date(end);
-    start.setDate(start.getDate() - (WEEKS * 7 - 1));
-    for (let i = 0; i < WEEKS * 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const p = (x: number) => String(x).padStart(2, '0');
-      const key = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-      out.push({ key, count: counts[key] || 0, label: key });
-    }
-    return out;
-  }, [counts]);
+  const cells = useMemo(() => heatmapCells(days, WEEKS), [days]);
 
   return (
     <div className="overflow-x-auto pb-1">
@@ -152,7 +165,7 @@ function Heatmap({ days }: { days: string[] }) {
         {cells.map((c) => (
           <div
             key={c.key}
-            title={`${c.label}${c.count ? ` · 打卡 ${c.count} 次` : ''}`}
+            title={`${c.key}${c.count ? ` · 打卡 ${c.count} 次` : ''}`}
             className={cn(
               'h-3.5 w-3.5 rounded-[3px]',
               c.count === 0 && 'bg-surface-2',

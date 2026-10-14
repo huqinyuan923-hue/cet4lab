@@ -23,6 +23,7 @@ export default function MistakesView() {
   const [retry, setRetry] = useState(false);
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [showZh, setShowZh] = useState(true);
+  const [paperFilter, setPaperFilter] = useState('all');
 
   const refresh = () => {
     setItems(getMistakes());
@@ -37,8 +38,20 @@ export default function MistakesView() {
 
   const filtered = useMemo(() => {
     if (!items) return [];
-    return items.filter((m) => (part === 'all' || m.part === part) && (showMastered || !m.mastered));
-  }, [items, part, showMastered]);
+    return items.filter(
+      (m) =>
+        (part === 'all' || m.part === part) &&
+        (paperFilter === 'all' || m.paperId === paperFilter) &&
+        (showMastered || !m.mastered)
+    );
+  }, [items, part, showMastered, paperFilter]);
+
+  /** 当前错题涉及到的套卷（用于按卷筛选） */
+  const papers = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of items ?? []) if (!m.mastered || showMastered) set.add(m.paperId);
+    return [...set].sort().reverse();
+  }, [items, showMastered]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: 0 };
@@ -78,7 +91,24 @@ export default function MistakesView() {
         </div>
       </header>
 
-      <Segmented value={part} onChange={setPart} size="sm" options={PARTS.map((p) => ({ ...p, label: `${p.label} ${counts[p.value] ?? 0}` }))} />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Segmented value={part} onChange={setPart} size="sm" options={PARTS.map((p) => ({ ...p, label: `${p.label} ${counts[p.value] ?? 0}` }))} />
+        {papers.length > 1 && (
+          <select
+            value={paperFilter}
+            onChange={(e) => setPaperFilter(e.target.value)}
+            className="field w-auto py-1.5 text-sm"
+            aria-label="按套卷筛选"
+          >
+            <option value="all">全部套卷</option>
+            {papers.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
       {retry && (
         <p className="rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm text-brand">

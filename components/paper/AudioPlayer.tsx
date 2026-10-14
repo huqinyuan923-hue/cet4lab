@@ -35,6 +35,7 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, {
 }>(function AudioPlayer({ audio, initialSpeed = 1, storageKey, highlightPiece, compact = false }, handle) {
   const ref = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
+  const resumeRef = useRef(0);
   const [engine, setEngine] = useState<Engine>('loading');
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -62,6 +63,7 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, {
     const saved = posKey ? Number(window.localStorage.getItem(`${posKey}:pos`) || 0) : 0;
     const savedSpeed = posKey ? Number(window.localStorage.getItem(`${posKey}:speed`) || 0) : 0;
     if (savedSpeed) setSpeed(savedSpeed);
+    resumeRef.current = saved > 1 ? saved : 0;
     if (saved > 1) el.currentTime = saved;
 
     if (supportsNativeHls()) {
@@ -122,7 +124,18 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, {
         }
       }
     };
-    const onMeta = () => setDuration(el.duration || 0);
+    const onMeta = () => {
+      setDuration(el.duration || 0);
+      // 元数据就绪后再定位，避免部分浏览器忽略过早的 currentTime 赋值
+      if (resumeRef.current > 1 && el.currentTime < 1) {
+        try {
+          el.currentTime = resumeRef.current;
+        } catch {
+          /* 忽略 */
+        }
+      }
+      resumeRef.current = 0;
+    };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     el.addEventListener('timeupdate', onTime);
@@ -234,7 +247,8 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, {
             value={Math.min(time, duration || 0)}
             onChange={(e) => seek(Number(e.target.value))}
             className="mt-1.5 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-2 accent-[rgb(var(--c-brand))]"
-            aria-label="进度"
+            aria-label="听力进度"
+            aria-valuetext={`${fmtTime(time)} / ${duration ? fmtTime(duration) : '未知'}`}
           />
         </div>
 

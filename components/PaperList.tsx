@@ -8,6 +8,14 @@ import { Icons, ProgressBar, Segmented, cn } from '@/components/ui';
 
 type Status = 'all' | 'todo' | 'doing' | 'done';
 
+/** 悬停/聚焦时预取题目数据，点进去即开（每卷只取一次） */
+const prefetched = new Set<string>();
+function prefetchPaper(id: string) {
+  if (typeof window === 'undefined' || prefetched.has(id)) return;
+  prefetched.add(id);
+  void fetch(`/data/papers/${id}.json`).catch(() => prefetched.delete(id));
+}
+
 export default function PaperList({ metas }: { metas: PaperMeta[] }) {
   const [status, setStatus] = useState<Status>('all');
   const [year, setYear] = useState<string>('all');
@@ -94,6 +102,9 @@ export default function PaperList({ metas }: { metas: PaperMeta[] }) {
             <Link
               key={m.id}
               href={`/papers/${m.id}`}
+              onMouseEnter={() => prefetchPaper(m.id)}
+              onFocus={() => prefetchPaper(m.id)}
+              onTouchStart={() => prefetchPaper(m.id)}
               className={cn('card group flex flex-col gap-2.5 p-4 transition hover:border-brand/50', done && 'border-ok/30')}
             >
               <div className="flex items-start justify-between gap-2">

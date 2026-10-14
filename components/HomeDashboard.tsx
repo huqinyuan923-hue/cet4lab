@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { PaperMeta } from '@/lib/types';
 import { aggregate, getAnswers, getCheckins, getMistakes, getProgress, type Aggregate } from '@/lib/storage';
+import { calcStreak } from '@/lib/stats';
 import { Icons, ProgressBar } from '@/components/ui';
 
 interface Summary {
@@ -15,7 +16,7 @@ interface Summary {
 
 export default function HomeDashboard({ metas }: { metas: PaperMeta[] }) {
   const [agg, setAgg] = useState<Aggregate | null>(null);
-  const [checkins, setCheckins] = useState(0);
+  const [checkins, setCheckins] = useState<string[]>([]);
   const [mistakes, setMistakes] = useState(0);
   const [summaries, setSummaries] = useState<Record<string, Summary>>({});
   const [last, setLast] = useState<{ id: string; label: string; set: string; answered: number; total: number } | null>(null);
@@ -23,7 +24,7 @@ export default function HomeDashboard({ metas }: { metas: PaperMeta[] }) {
   useEffect(() => {
     const refresh = () => {
       setAgg(aggregate());
-      setCheckins(getCheckins().length);
+      setCheckins(getCheckins());
       setMistakes(getMistakes().filter((m) => !m.mastered).length);
 
       const next: Record<string, Summary> = {};
@@ -58,7 +59,12 @@ export default function HomeDashboard({ metas }: { metas: PaperMeta[] }) {
 
   const stats = [
     { label: '已完成套卷', value: agg ? `${agg.donePapers}` : '–', sub: `/ ${metas.length} 套`, icon: <Icons.Check className="h-4 w-4" /> },
-    { label: '累计打卡', value: agg ? `${checkins}` : '–', sub: '天', icon: <Icons.Target className="h-4 w-4" /> },
+    {
+      label: '连续打卡',
+      value: agg ? `${calcStreak(checkins)}` : '–',
+      sub: checkins.length ? `天（累计 ${checkins.length} 天）` : '天',
+      icon: <Icons.Target className="h-4 w-4" />,
+    },
     { label: '累计答题', value: agg ? `${agg.answeredQuestions}` : '–', sub: '道', icon: <Icons.List className="h-4 w-4" /> },
     { label: '待复习错题', value: agg ? `${mistakes}` : '–', sub: '道', icon: <Icons.Star className="h-4 w-4" /> },
   ];

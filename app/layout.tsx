@@ -17,7 +17,23 @@ export const metadata: Metadata = {
     description: '46 套四级真题在线刷，免登录、免下载，带逐题解析与听力分段精听。',
     type: 'website',
     locale: 'zh_CN',
+    siteName: 'CET4Lab',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'CET4Lab · 四级真题刷题' }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CET4Lab · 四级真题刷题',
+    description: '46 套四级真题在线刷，免登录、免下载，带逐题解析与听力分段精听。',
+    images: ['/og.png'],
+  },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  manifest: '/manifest.webmanifest',
   robots: { index: true, follow: true },
 };
 
@@ -37,6 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Safari 直连音频源站：提前建连可减少首播等待 */}
+        <link rel="preconnect" href="https://listening.lazynote.cn" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://listening.lazynote.cn" />
       </head>
       <body className="min-h-screen">
         <SiteHeader />

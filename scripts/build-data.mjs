@@ -63,11 +63,26 @@ if (!PAPERS || !INDEX || !AUDIO) fail('源数据缺少 __CET4_PAPERS / __CET4_IN
 
 const indexById = new Map((Array.isArray(INDEX) ? INDEX : Object.values(INDEX)).map((e) => [e.id, e]));
 
+/* ---------- 源数据清洗 ----------
+ * 源仓库由 PDF 转制，解析时会把题干/选项之后的文本（下一段听力原文、
+ * "Questions 5 to 7 are based on…" 之类的指导语、或 "Section B" 页眉）黏到
+ * 前一段的最后一行。实测 46 套中共 47 个选项 + 12 个题干受影响，形态固定为
+ * 「句末标点 + 空白 + 后续块首特征」，因此按边界剥离。
+ */
+const APPEND_BOUNDARY =
+  /([.!?]["')\]]?)\s+(?=\d{1,3}\s+["'\u201c]?[A-Z]|Questions?\s+\d|Section\s+[ABC]\b|Directions\s*:)/;
+const stripAppended = (s) => {
+  if (typeof s !== 'string') return s;
+  const m = APPEND_BOUNDARY.exec(s);
+  return m ? s.slice(0, m.index + m[1].length).trim() : s;
+};
+
 // ---- 2. 校验 + 收集 ----
 const ids = Object.keys(PAPERS).sort();
 if (ids.length !== EXPECT.papers) fail(`试卷数 ${ids.length} ≠ 期望 ${EXPECT.papers}`);
 
 let totalQuestions = 0;
+let cleaned = 0;
 const metas = [];
 const audioOut = {};
 const warn = [];
@@ -88,6 +103,21 @@ for (const id of ids) {
 
   const counts = {};
   for (const q of qs) {
+    // 先清洗（剥离黏连的后续文本），再做校验，保证校验作用于最终产物
+    const stemBefore = q.stem;
+    q.stem = stripAppended(q.stem);
+    if (q.stem !== stemBefore) cleaned++;
+    if (Array.isArray(q.options)) {
+      q.options = q.options.map((o) => {
+        const next = stripAppended(o);
+        if (next !== o) cleaned++;
+        return next;
+      });
+    }
+    if (APPEND_BOUNDARY.test(q.stem) || (Array.isArray(q.options) && q.options.some((o) => APPEND_BOUNDARY.test(o)))) {
+      fail(`${id} 第 ${q.no} 题清洗后仍残留黏连文本`);
+    }
+
     counts[q.part] = (counts[q.part] || 0) + 1;
     if (!q.answer) fail(`${id} 第 ${q.no} 题 answer 为空`);
 
@@ -160,7 +190,8 @@ fs.writeFileSync(path.join(OUT, 'audio', 'index.json'), JSON.stringify(audioOut,
 const directCount = Object.values(audioOut).filter((a) => a.from === 'self').length;
 console.log(
   `\x1b[32m✓\x1b[0m 数据管线完成：${ids.length} 套 / ${totalQuestions} 题 / ${(bytes / 1048576).toFixed(2)}MB` +
-    ` · 音频 ${directCount} 直连 + ${ids.length - directCount} 经 share → ${Object.keys(audioOut).length}/${ids.length} 可播`
+    ` · 音频 ${directCount} 直连 + ${ids.length - directCount} 经 share → ${Object.keys(audioOut).length}/${ids.length} 可播` +
+    ` · 清洗黏连文本 ${cleaned} 处`
 );
 if (warn.length) {
   const shown = warn.slice(0, 3).join('；');

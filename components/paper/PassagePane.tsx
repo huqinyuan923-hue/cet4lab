@@ -38,7 +38,9 @@ export default function PassagePane({ paper, q, answers, reveal = false, activeN
     const rect = sel.getRangeAt(0).getBoundingClientRect();
     const host = boxRef.current?.getBoundingClientRect();
     if (!host || rect.width === 0) return;
-    setPop({ word: raw, x: rect.left + rect.width / 2 - host.left, y: rect.top - host.top - 10, saved: false });
+    // 夹在面板宽度内，避免靠边选词时浮层溢出屏幕
+    const x = Math.min(Math.max(rect.left + rect.width / 2 - host.left, 78), Math.max(host.width - 78, 78));
+    setPop({ word: raw, x, y: rect.top - host.top - 10, saved: false });
   }, []);
 
   const speak = (word: string) => {
@@ -84,7 +86,7 @@ export default function PassagePane({ paper, q, answers, reveal = false, activeN
                 >
                   {p.key}
                 </span>
-                <span className="prose-en inline text-[15px]">{p.text}</span>
+                <span lang="en" className="prose-en inline text-[15px]">{p.text}</span>
               </div>
             );
           })}
@@ -96,7 +98,7 @@ export default function PassagePane({ paper, q, answers, reveal = false, activeN
       const bank = q.wordBank || {};
       const tokens = clozeTokens(passage);
       return (
-        <div className="prose-en preserve text-[15px] leading-[2.2]">
+        <div lang="en" className="prose-en preserve text-[15px] leading-[2.2]">
           {tokens.map((t, i) => {
             if (t.type === 'text') return <span key={i}>{t.text}</span>;
             const picked = answers[String(t.no)];
@@ -127,7 +129,7 @@ export default function PassagePane({ paper, q, answers, reveal = false, activeN
 
     const paras = numberedParagraphs(passage);
     return (
-      <div className="prose-en space-y-4">
+      <div lang="en" className="prose-en space-y-4">
         {paras.map((p, i) => (
           <p key={i}>{p}</p>
         ))}

@@ -26,6 +26,8 @@ import QuestionCard from './QuestionCard';
 import ClozeBoard from './ClozeBoard';
 import PassagePane from './PassagePane';
 import WritingTranslation from './WritingTranslation';
+import AnswerSheet from './AnswerSheet';
+import ExamTimer from './ExamTimer';
 import { Icons, ProgressBar, Segmented, cn } from '@/components/ui';
 
 type Mode = 'exam' | 'practice' | 'study';
@@ -51,17 +53,18 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   const [answers, setAnswersState] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [progress, setProgressState] = useState<Progress | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
   const [activePart, setActivePart] = useState<string>('listening');
   const [subjDone, setSubjDoneState] = useState<SubjectiveDone>({ writing: false, translation: false });
   const [showZh, setShowZh] = useState(true);
   const [showSheet, setShowSheet] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const playerRef = useRef<AudioPlayerHandle | null>(null);
   const submittingRef = useRef(false);
 
   /* ---------- 加载 ---------- */
   useEffect(() => {
     let alive = true;
+    setLoadError(null);
     (async () => {
       try {
         const [pRes, aRes] = await Promise.all([
@@ -81,7 +84,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
     return () => {
       alive = false;
     };
-  }, [meta.id]);
+  }, [meta.id, reloadKey]);
 
   /* ---------- 读取本地状态 ---------- */
   useEffect(() => {
@@ -103,29 +106,34 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
     });
   }, []);
 
-  /* ---------- 考试计时 ---------- */
+  /* ---------- 考试中防误关：有作答且未交卷时提示 ---------- */
   useEffect(() => {
-    if (mode !== 'exam' || submitted) {
-      setRemaining(null);
-      return;
-    }
-    let deadline = progress?.examDeadline;
-    if (!deadline) {
-      deadline = Date.now() + EXAM_SECONDS * 1000;
-      const next: Progress = { ...(progress ?? { status: 'in-progress' }), status: 'in-progress', startedAt: progress?.startedAt ?? Date.now(), timed: true, examDeadline: deadline };
-      persistProgress(meta.id, next);
-      setProgressState(next);
-    }
-    const tick = () => {
-      const left = Math.round((deadline! - Date.now()) / 1000);
-      setRemaining(left);
-      if (left <= 0) voidSubmit();
+    if (submitted || mode === 'study') return;
+    const hasWork = Object.keys(getAnswers(meta.id)).length > 0 || Object.keys(answers).length > 0;
+    if (!hasWork) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
     };
-    tick();
-    const t = window.setInterval(tick, 1000);
-    return () => window.clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, submitted, progress?.examDeadline, meta.id]);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [submitted, mode, meta.id, answers]);
+
+  /* ---------- 考试计时：只维护截止时间戳，秒级跳动交给 ExamTimer ---------- */
+  useEffect(() => {
+    if (mode !== 'exam' || submitted) return;
+    if (progress?.examDeadline) return;
+    const deadline = Date.now() + EXAM_SECONDS * 1000;
+    const next: Progress = {
+      ...(progress ?? { status: 'in-progress' }),
+      status: 'in-progress',
+      startedAt: progress?.startedAt ?? Date.now(),
+      timed: true,
+      examDeadline: deadline,
+    };
+    persistProgress(meta.id, next);
+    setProgressState(next);
+  }, [mode, submitted, progress, meta.id]);
 
   const questions = paper?.questions ?? [];
   const answeredCount = useMemo(
@@ -134,6 +142,18 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   );
   const revealed = submitted || mode === 'study';
   const editable = !submitted && mode !== 'study';
+  /** 限时模式下仍在计时才传截止时间，交卷后即停表 */
+  const examDeadline = mode === 'exam' && !submitted ? (progress?.examDeadline ?? null) : null;
+
+  /* ---------- 跳到第一个未作答的题 ---------- */
+  const jumpNextUnanswered = useCallback(() => {
+    const next = questions.find((q) => !answers[String(q.no)]);
+    if (!next) {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return;
+    }
+    document.getElementById(`q-${next.no}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [questions, answers]);
 
   const score = useMemo(() => (paper && (submitted || mode === 'study') ? scorePaper(paper, answers) : null), [paper, answers, submitted, mode]);
 
@@ -228,9 +248,16 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
     return (
       <div className="card p-6 text-center">
         <p className="text-bad">{loadError}</p>
-        <Link href="/papers" className="btn mt-4">
-          返回套卷列表
-        </Link>
+        <p className="mt-1 text-xs text-muted">可能是网络波动，重试一次通常就好了。</p>
+        <div className="mt-4 flex justify-center gap-2.5">
+          <button type="button" className="btn btn-primary" onClick={() => setReloadKey((k) => k + 1)}>
+            <Icons.Refresh className="h-4 w-4" />
+            重试
+          </button>
+          <Link href="/papers" className="btn">
+            返回套卷列表
+          </Link>
+        </div>
       </div>
     );
   }
@@ -253,19 +280,31 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
             </h1>
             <p className="hidden text-xs text-muted sm:block">
               已答 {answeredCount}/{questions.length}
-              {mode === 'exam' && remaining != null && (
-                <span className={cn('ml-2 font-mono', remaining < 300 && 'text-bad')}>
-                  <Icons.Clock className="mr-0.5 inline h-3.5 w-3.5" />
-                  {fmtTime(remaining)}
-                </span>
+              {mode === 'exam' && examDeadline && (
+                <ExamTimer deadline={examDeadline} onExpire={submit} className="ml-2 text-xs" withIcon />
               )}
             </p>
           </div>
-          {mode === 'exam' && remaining != null && (
-            <span className={cn('font-mono text-xs sm:hidden', remaining < 300 ? 'text-bad' : 'text-muted')}>
-              {fmtTime(remaining)}
-            </span>
+          {mode === 'exam' && examDeadline && (
+            <ExamTimer deadline={examDeadline} onExpire={submit} className="text-xs sm:hidden" />
           )}
+          <button
+            type="button"
+            onClick={jumpNextUnanswered}
+            title="跳到第一个未作答的题"
+            className="btn hidden px-2.5 py-1.5 text-xs text-muted sm:inline-flex"
+          >
+            下一题未答
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSheet(true)}
+            title="打开答题卡"
+            className="btn px-2.5 py-1.5 text-xs"
+          >
+            <Icons.List className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">答题卡</span>
+          </button>
           <button
             type="button"
             onClick={toggleZh}
@@ -379,8 +418,9 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
           return (
             <section key={part} className="mb-6">
               <SectionTitle part={PART_LABEL[part]} tip={SECTION_TIPS[part]} count={qs.length} answered={qs.filter((q) => answers[String(q.no)]).length} />
-              <div className="mb-3.5">
-                <AudioPlayer ref={playerRef} audio={audio} storageKey={meta.id} initialSpeed={getSettings().defaultSpeed} />
+              {/* 听力播放器吸顶：滚动到第 8 题以后仍可操作播放/分段 */}
+              <div className="sticky top-[7.25rem] z-20 mb-3.5">
+                <AudioPlayer ref={playerRef} audio={audio} storageKey={meta.id} initialSpeed={getSettings().defaultSpeed} compact />
               </div>
               <div className="space-y-3">
                 {qs.map((q) => (
@@ -474,6 +514,14 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
           </section>
         );
       })}
+
+      <AnswerSheet
+        paper={paper}
+        answers={answers}
+        results={submitted && score ? score.details : null}
+        open={showSheet}
+        onClose={() => setShowSheet(false)}
+      />
     </div>
   );
 }

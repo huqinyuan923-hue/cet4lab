@@ -9,13 +9,15 @@ import Link from 'next/link';
 import type { WordEntry } from '@/lib/types';
 import { getWordbook, removeWord, updateWord } from '@/lib/storage';
 import { newSrs, isDue, review, type QUALITY } from '@/lib/srs';
-import { Icons, cn } from '@/components/ui';
+import { Icons, Segmented, cn } from '@/components/ui';
 
 type Q = (typeof QUALITY)[keyof typeof QUALITY];
 
 export default function WordbookView() {
   const [items, setItems] = useState<WordEntry[] | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<'new' | 'due'>('new');
 
   const refresh = () => setItems(getWordbook());
 
@@ -26,6 +28,17 @@ export default function WordbookView() {
   }, []);
 
   const due = useMemo(() => (items ?? []).filter((w) => w.srs && isDue(w.srs)), [items]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = (items ?? []).filter(
+      (w) => !q || w.word.toLowerCase().includes(q) || (w.trans ?? '').toLowerCase().includes(q) || (w.context ?? '').toLowerCase().includes(q)
+    );
+    if (sort === 'due') {
+      return [...list].sort((a, b) => (a.srs?.due ?? '9999').localeCompare(b.srs?.due ?? '9999'));
+    }
+    return [...list].sort((a, b) => b.addedAt - a.addedAt);
+  }, [items, query, sort]);
 
   const speak = (word: string) => {
     try {
@@ -55,13 +68,36 @@ export default function WordbookView() {
             {items.length > 0 && ' · 复习采用 SM-2 间隔重复'}
           </p>
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex flex-wrap gap-2.5">
           <button type="button" className="btn btn-primary text-sm" disabled={due.length === 0} onClick={() => setReviewing(true)}>
             <Icons.Refresh className="h-4 w-4" />
             开始复习
           </button>
         </div>
       </header>
+
+      {items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2.5">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索单词、释义或例句…"
+            className="field max-w-xs flex-1 py-1.5 text-sm"
+            aria-label="搜索生词"
+          />
+          <Segmented
+            value={sort}
+            onChange={setSort}
+            size="sm"
+            options={[
+              { value: 'new', label: '按收藏时间' },
+              { value: 'due', label: '按复习日期' },
+            ]}
+          />
+          {query && <span className="text-xs text-muted">匹配 {shown.length} 个</span>}
+        </div>
+      )}
 
       {items.length === 0 ? (
         <div className="card p-8 text-center text-sm text-muted">
@@ -72,9 +108,11 @@ export default function WordbookView() {
             </Link>
           </div>
         </div>
+      ) : shown.length === 0 ? (
+        <p className="card p-8 text-center text-sm text-muted">没有匹配「{query}」的生词。</p>
       ) : (
         <ul className="grid gap-2.5 sm:grid-cols-2">
-          {items.map((w) => (
+          {shown.map((w) => (
             <li key={w.word} className="card flex items-start gap-3 p-3.5">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

@@ -8,25 +8,30 @@
 ## 功能
 
 - **三种模式**：整卷限时（125 分钟倒计时）/ 分题型练习（可单题对答案）/ 背题（直接看解析）
+- **中文开关**：一键隐藏题干与选项的中文翻译（偏好持久化，随备份导出）
+- **答题卡**：55 题一屏总览，已答/答对/答错三色状态，点击题号直接跳转；另有「下一题未答」快捷跳转
 - **作答与批改**：客观题自动判分、分题型正确率、逐题解析（听力 `定位/信号/排除/替换`、完形 `词性槽/依据/竞争词/易错`、匹配 `定位/改写/辨邻`、阅读 `判型/拆句/定位/信号/替换/选项`）
-- **听力**：分段精听（点击跳段）、本段循环、倍速、进度记忆
-- **错题本**：交卷自动收录答错题，按题型复习、重练模式、标记已掌握
-- **生词本**：真题原文点词收藏（自动保存所在原句），按 SM-2 间隔重复复习
-- **统计**：12 周打卡热力图、各题型正确率、数据导出 / 导入（localStorage 备份）
-- 深浅色主题、移动端优先布局、键盘可操作
+- **听力**：分段精听（点击跳段）、本段循环、倍速、进度记忆；听力区块内播放器吸顶，做到第 25 题也能随时操作
+- **错题本**：交卷自动收录答错题，按题型/套卷筛选、重练模式、标记已掌握
+- **生词本**：真题原文点词收藏（自动保存所在原句），搜索与排序，按 SM-2 间隔重复复习
+- **统计**：12 周打卡热力图、各题型正确率、正确率最低的套卷排行、数据导出 / 导入
+- 深浅色主题、移动端优先布局、键盘可操作、尊重系统「减少动态效果」
 
 ## 技术栈
 
 Next.js 15（App Router）+ TypeScript strict + Tailwind CSS，pnpm。
 页面全部构建期静态预渲染（`generateStaticParams` 覆盖 46 套卷），用户数据仅存浏览器 localStorage。
-音频源 CDN 未开放跨域，因此提供一个 Edge 代理路由 `app/api/listen/[...path]`（host 白名单，只转发不落盘）供非 Safari 浏览器播放。
+音频源 CDN 未开放跨域，因此提供一个服务端代理路由 `app/api/listen/[...path]`（host 白名单，只转发不落盘）供非 Safari 浏览器播放；
+该 CDN 只服务国内线路，代理固定 Node 运行时执行，命中 Vercel 边缘缓存后分片读取约 0.4s。
 
 ```
-app/                    页面与唯一服务端路由（/api/listen）
-components/paper/       刷题核心：PaperRunner / AudioPlayer / ClozeBoard / PassagePane / QuestionCard ...
+app/                    页面与唯一服务端路由（/api/listen）；robots/sitemap/manifest 同处
+components/paper/       刷题核心：PaperRunner / AudioPlayer / ClozeBoard / PassagePane / QuestionCard / AnswerSheet ...
 components/             列表、错题本、统计、生词本等视图
-lib/                    数据层（storage/srs/paper 工具）与类型
-scripts/build-data.mjs  P0 数据管线：源 JS → public/data 静态 JSON（含完整性校验）
+lib/                    数据层（storage/srs/paper/stats 工具）与类型
+scripts/build-data.mjs  P0 数据管线：源 JS → public/data 静态 JSON（含清洗与完整性校验）
+scripts/audit-quality.mjs  数据体检：选项黏连、译文缺失、答案一致性等
+scripts/gen-assets.mjs 生成 favicon / apple icon / 社交分享图
 ```
 
 ## 本地开发

@@ -100,12 +100,12 @@ export default function QuestionCard({
       <div className={cn('mb-3', compactStem && 'mb-2')}>
         {isMatching ? (
           <>
-            <p className="text-[15px] leading-relaxed">{q.stem}</p>
+            <p lang="en" className="text-[15px] leading-relaxed">{q.stem}</p>
             {showZh && q.stemZh && <p className="mt-0.5 text-[13px] text-muted">{q.stemZh}</p>}
           </>
         ) : (
           <>
-            <p className="font-serif text-[15.5px] leading-relaxed">{q.stem}</p>
+            <p lang="en" className="font-serif text-[15.5px] leading-relaxed">{q.stem}</p>
             {showZh && q.stemZh && <p className="mt-0.5 text-[13px] text-muted">{q.stemZh}</p>}
           </>
         )}
@@ -176,7 +176,7 @@ export default function QuestionCard({
                     {o.key}
                   </span>
                   <span className="flex-1">
-                    <span className="block font-serif text-[15px] leading-relaxed">{o.text}</span>
+                    <span lang="en" className="block font-serif text-[15px] leading-relaxed">{o.text}</span>
                     {showZh && o.textZh && (
                       <span className="mt-0.5 block text-[12.5px] leading-relaxed text-muted">{o.textZh}</span>
                     )}
