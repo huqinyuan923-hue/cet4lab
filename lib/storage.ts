@@ -17,7 +17,7 @@ export const K = {
   settings: `${P}settings`,
 } as const;
 
-export const DEFAULT_SETTINGS: Settings = { dailyNew: 20, defaultSpeed: 1, theme: 'auto' };
+export const DEFAULT_SETTINGS: Settings = { dailyNew: 20, defaultSpeed: 1, theme: 'auto', showZh: true };
 
 const isBrowser = () => typeof window !== 'undefined';
 

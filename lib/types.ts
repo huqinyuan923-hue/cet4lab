@@ -136,4 +136,6 @@ export interface Settings {
   dailyNew: number;
   defaultSpeed: number;
   theme: 'auto' | 'light' | 'dark';
+  /** 是否显示题目与选项的中文翻译 */
+  showZh: boolean;
 }

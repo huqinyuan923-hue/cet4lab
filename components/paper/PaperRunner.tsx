@@ -17,6 +17,7 @@ import {
   getSubjectiveDone,
   setAnswers as persistAnswers,
   setProgress as persistProgress,
+  setSettings,
   setSubjectiveDone,
   type SubjectiveDone,
 } from '@/lib/storage';
@@ -53,6 +54,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   const [remaining, setRemaining] = useState<number | null>(null);
   const [activePart, setActivePart] = useState<string>('listening');
   const [subjDone, setSubjDoneState] = useState<SubjectiveDone>({ writing: false, translation: false });
+  const [showZh, setShowZh] = useState(true);
   const [showSheet, setShowSheet] = useState(false);
   const playerRef = useRef<AudioPlayerHandle | null>(null);
   const submittingRef = useRef(false);
@@ -86,10 +88,20 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
     if (!paper) return;
     setAnswersState(getAnswers(meta.id));
     setSubjDoneState(getSubjectiveDone(meta.id));
+    setShowZh(getSettings().showZh);
     const prog = getProgress(meta.id);
     setProgressState(prog);
     if (prog?.status === 'done') setSubmitted(true);
   }, [paper, meta.id]);
+
+  /* ---------- 中文翻译开关（全局偏好，持久化） ---------- */
+  const toggleZh = useCallback(() => {
+    setShowZh((prev) => {
+      const next = !prev;
+      setSettings({ showZh: next });
+      return next;
+    });
+  }, []);
 
   /* ---------- 考试计时 ---------- */
   useEffect(() => {
@@ -254,6 +266,18 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
               {fmtTime(remaining)}
             </span>
           )}
+          <button
+            type="button"
+            onClick={toggleZh}
+            aria-pressed={showZh}
+            title={showZh ? '隐藏题目与选项的中文翻译' : '显示题目与选项的中文翻译'}
+            className={cn(
+              'btn px-2.5 py-1.5 text-xs',
+              showZh ? 'border-brand/50 bg-brand-soft text-brand' : 'text-muted'
+            )}
+          >
+            中文
+          </button>
           <Segmented value={mode} onChange={(m) => setMode(m)} options={MODE_OPTIONS} size="sm" />
           {!submitted ? (
             <button type="button" className="btn btn-primary text-sm" onClick={submit} disabled={answeredCount === 0}>
@@ -368,6 +392,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
                     editable={editable}
                     onAnswer={onAnswer}
                     allowPeek={mode === 'practice'}
+                      showZh={showZh}
                     pieces={audio?.pieces}
                     onPlayPiece={(i) => playerRef.current?.playPiece(i)}
                   />
@@ -404,6 +429,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
                       editable={editable}
                       onAnswer={onAnswer}
                       allowPeek={mode === 'practice'}
+                      showZh={showZh}
                     />
                   ))}
                 </div>
@@ -437,6 +463,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
                           editable={editable}
                           onAnswer={onAnswer}
                           allowPeek={mode === 'practice'}
+                      showZh={showZh}
                         />
                       ))}
                     </div>

@@ -23,6 +23,8 @@ interface Props {
   onPlayPiece?: (idx: number) => void;
   idPrefix?: string;
   compactStem?: boolean;
+  /** 是否显示题干/选项的中文翻译与段落大意提示 */
+  showZh?: boolean;
 }
 
 export default function QuestionCard({
@@ -35,6 +37,7 @@ export default function QuestionCard({
   pieces,
   onPlayPiece,
   compactStem = false,
+  showZh = true,
 }: Props) {
   const [peek, setPeek] = useState(false);
   const show = revealed || peek;
@@ -59,7 +62,7 @@ export default function QuestionCard({
         </span>
         <span className="text-muted">{q.partName}</span>
         {q.type && <span className="chip">{q.type}</span>}
-        {isMatching && q.anchor && <span className="chip">大意：{q.anchor}</span>}
+        {showZh && isMatching && q.anchor && <span className="chip">大意：{q.anchor}</span>}
         {pieceIdx >= 0 && onPlayPiece && (
           <button
             type="button"
@@ -98,12 +101,12 @@ export default function QuestionCard({
         {isMatching ? (
           <>
             <p className="text-[15px] leading-relaxed">{q.stem}</p>
-            {q.stemZh && <p className="mt-0.5 text-[13px] text-muted">{q.stemZh}</p>}
+            {showZh && q.stemZh && <p className="mt-0.5 text-[13px] text-muted">{q.stemZh}</p>}
           </>
         ) : (
           <>
             <p className="font-serif text-[15.5px] leading-relaxed">{q.stem}</p>
-            {q.stemZh && <p className="mt-0.5 text-[13px] text-muted">{q.stemZh}</p>}
+            {showZh && q.stemZh && <p className="mt-0.5 text-[13px] text-muted">{q.stemZh}</p>}
           </>
         )}
       </div>
@@ -174,7 +177,9 @@ export default function QuestionCard({
                   </span>
                   <span className="flex-1">
                     <span className="block font-serif text-[15px] leading-relaxed">{o.text}</span>
-                    {o.textZh && <span className="mt-0.5 block text-[12.5px] leading-relaxed text-muted">{o.textZh}</span>}
+                    {showZh && o.textZh && (
+                      <span className="mt-0.5 block text-[12.5px] leading-relaxed text-muted">{o.textZh}</span>
+                    )}
                   </span>
                 </button>
               </li>

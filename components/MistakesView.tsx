@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { Mistake } from '@/lib/types';
-import { getMistakes, removeMistake, setMistakeMastered } from '@/lib/storage';
+import { getMistakes, getSettings, removeMistake, setMistakeMastered } from '@/lib/storage';
 import { normOptions } from '@/lib/paper';
 import ExplainPanel from '@/components/paper/ExplainPanel';
 import { Icons, Segmented, cn } from '@/components/ui';
@@ -22,8 +22,12 @@ export default function MistakesView() {
   const [showMastered, setShowMastered] = useState(false);
   const [retry, setRetry] = useState(false);
   const [picked, setPicked] = useState<Record<string, string>>({});
+  const [showZh, setShowZh] = useState(true);
 
-  const refresh = () => setItems(getMistakes());
+  const refresh = () => {
+    setItems(getMistakes());
+    setShowZh(getSettings().showZh);
+  };
 
   useEffect(() => {
     refresh();
@@ -88,6 +92,7 @@ export default function MistakesView() {
             key={`${m.paperId}#${m.no}`}
             m={m}
             retry={retry}
+            showZh={showZh}
             picked={picked[`${m.paperId}#${m.no}`]}
             onPick={(key) => setPicked((p) => ({ ...p, [`${m.paperId}#${m.no}`]: key }))}
             onRemove={() => removeMistake(m.paperId, m.no)}
@@ -114,6 +119,7 @@ export default function MistakesView() {
 function MistakeCard({
   m,
   retry,
+  showZh,
   picked,
   onPick,
   onRemove,
@@ -121,6 +127,7 @@ function MistakeCard({
 }: {
   m: Mistake;
   retry: boolean;
+  showZh: boolean;
   picked?: string;
   onPick: (key: string) => void;
   onRemove: () => void;
@@ -160,14 +167,14 @@ function MistakeCard({
       </div>
 
       <p className="font-serif text-[15px] leading-relaxed">{m.stem}</p>
-      {m.stemZh && <p className="mt-0.5 text-[13px] text-muted">{m.stemZh}</p>}
+      {showZh && m.stemZh && <p className="mt-0.5 text-[13px] text-muted">{m.stemZh}</p>}
 
       <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm">
         <span className={cn('rounded-md px-2 py-0.5 text-xs', m.userAnswer === m.correctAnswer ? 'bg-ok/12 text-ok' : 'bg-bad/12 text-bad')}>
           你选 {m.userAnswer ?? '—'}
         </span>
         <span className="rounded-md bg-ok/12 px-2 py-0.5 text-xs text-ok">正确 {m.correctAnswer}</span>
-        {m.anchor && <span className="chip">大意：{m.anchor}</span>}
+        {showZh && m.anchor && <span className="chip">大意：{m.anchor}</span>}
       </div>
 
       {retry ? (
