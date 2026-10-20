@@ -136,6 +136,21 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   }, [mode, submitted, progress, meta.id]);
 
   const questions = paper?.questions ?? [];
+  const availableParts = useMemo<string[]>(() => {
+    if (!paper) return PART_ORDER;
+    const present = new Set(paper.questions.map((q) => q.part));
+    return PART_ORDER.filter((p) => present.has(p));
+  }, [paper]);
+  const hasSubjective = Boolean(paper?.subjective);
+
+  useEffect(() => {
+    if (!paper) return;
+    setActivePart((prev) => {
+      if (prev === 'subjective') return hasSubjective ? prev : (availableParts[0] ?? prev);
+      if (availableParts.includes(prev)) return prev;
+      return availableParts[0] ?? (hasSubjective ? 'subjective' : prev);
+    });
+  }, [paper, availableParts, hasSubjective]);
   const answeredCount = useMemo(
     () => questions.filter((q) => answers[String(q.no)]).length,
     [questions, answers]
@@ -263,7 +278,8 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   }
   if (!paper) return <Skeleton />;
 
-  const partsVisible = mode === 'practice' ? [activePart] : PART_ORDER;
+  const sections = [...availableParts, ...(hasSubjective ? ['subjective'] : [])];
+  const partsVisible = mode === 'practice' ? [activePart] : sections;
   const byPart = (p: string) => paper.questions.filter((q) => q.part === p);
 
   return (
@@ -390,7 +406,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
       {/* 练习模式：题型切换 */}
       {mode === 'practice' && (
         <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
-          {[...PART_ORDER, 'subjective'].map((p) => (
+          {sections.map((p) => (
             <button
               key={p}
               type="button"

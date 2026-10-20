@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { PaperMeta, Progress } from '@/lib/types';
 import { getAnswers, getProgress } from '@/lib/storage';
+import { partsSummary } from '@/lib/paper';
 import { Icons, ProgressBar, Segmented, cn } from '@/components/ui';
 
 type Status = 'all' | 'todo' | 'doing' | 'done';
@@ -113,7 +114,8 @@ export default function PaperList({ metas }: { metas: PaperMeta[] }) {
                     {m.label} · {m.set}
                   </p>
                   <p className="mt-0.5 text-xs text-muted">
-                    听力 25 · 选词 10 · 匹配 10 · 阅读 10{m.hasSubjective ? ' · 写作翻译' : ''}
+                    {partsSummary(m.parts)}
+                    {m.hasSubjective ? ' · 写作翻译' : ''}
                   </p>
                 </div>
                 {done ? (
@@ -129,8 +131,8 @@ export default function PaperList({ metas }: { metas: PaperMeta[] }) {
               </div>
               <ProgressBar value={done ? m.count : ans} max={m.count} />
               <div className="flex items-center gap-2 text-xs text-muted">
-                <Icons.Headphones className={cn('h-3.5 w-3.5', m.hasAudio ? 'text-brand' : '')} />
-                含听力音频
+                <Icons.Headphones className={cn('h-3.5 w-3.5', m.hasAudio ? 'text-brand' : 'text-muted')} />
+                {m.hasAudio ? '含听力音频' : '无听力音频'}
                 <Icons.ChevronRight className="ml-auto h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-brand" />
               </div>
             </Link>

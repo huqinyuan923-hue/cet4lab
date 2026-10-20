@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import type { PaperMeta } from '@/lib/types';
 import { aggregate, getAnswers, getCheckins, getMistakes, getProgress, type Aggregate } from '@/lib/storage';
 import { calcStreak } from '@/lib/stats';
+import { partsSummary } from '@/lib/paper';
 import { Icons, ProgressBar } from '@/components/ui';
 
 interface Summary {
@@ -83,7 +84,7 @@ export default function HomeDashboard({ metas }: { metas: PaperMeta[] }) {
           </p>
           <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">四级真题，打开就能刷</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-            2020 年 7 月至 2026 年 6 月历年真题，听力分段精听、逐题解析、错题本与打卡统计。做题记录存在你自己的浏览器里，不需要注册，也不上传任何数据。
+            2015 年 6 月至 2026 年 6 月历年真题，听力分段精听、逐题解析、错题本与打卡统计。做题记录存在你自己的浏览器里，不需要注册，也不上传任何数据。
           </p>
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Link href="/papers" className="btn btn-primary">
@@ -154,7 +155,10 @@ export default function HomeDashboard({ metas }: { metas: PaperMeta[] }) {
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-muted">听力 25 · 选词 10 · 匹配 10 · 阅读 10 · 写作翻译</p>
+                <p className="mt-2 text-xs text-muted">
+                  {partsSummary(m.parts)}
+                  {m.hasSubjective ? ' · 写作翻译' : ''}
+                </p>
                 <ProgressBar value={s?.done ? m.count : (s?.answered ?? 0)} max={m.count} className="mt-2.5" />
               </Link>
             );

@@ -9,9 +9,13 @@ export default function SiteFooter() {
           <span className="text-ink/80">教育部教育考试院</span>
           所有；本站数据为社区整理的历年 CET-4 真题（
           <a className="link" href="https://github.com/123xzw999/cet4-exam-quiz" target="_blank" rel="noreferrer noopener">
-            github.com/123xzw999/cet4-exam-quiz
+            123xzw999/cet4-exam-quiz
           </a>
-          ，该项目未声明内容许可），仅供个人备考学习使用。
+          与
+          <a className="link mx-1" href="https://github.com/gongyining0601/cet4" target="_blank" rel="noreferrer noopener">
+            gongyining0601/cet4
+          </a>
+          ，均未声明内容许可），仅供个人备考学习使用。
         </p>
         <p>听力音频不存储于本站，仅外链或经代理实时转发；如权利人提出异议将立即下线相关内容。</p>
         <nav className="flex flex-wrap gap-x-4 gap-y-1 pt-1">

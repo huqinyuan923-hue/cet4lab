@@ -49,6 +49,14 @@ export default function WritingTranslation({
               <p className="prose-en whitespace-pre-wrap text-[14.5px]">{writing.directions}</p>
             </div>
           )}
+          {writing.image && (
+            <img
+              src={writing.image}
+              alt="写作题目配图"
+              loading="lazy"
+              className="mb-3 block max-h-[420px] w-auto max-w-full rounded-lg border border-line"
+            />
+          )}
           <div className="space-y-2.5">
             {writing.outline && (
               <Collapse title="提纲思路">

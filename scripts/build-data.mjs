@@ -13,6 +13,7 @@ const SRC = process.env.CET4_SRC
   ? path.resolve(process.env.CET4_SRC)
   : 'C:/works/cet4-papers/cet4-exam-quiz/data';
 const OUT = path.join(ROOT, 'public', 'data');
+const LEGACY_MANIFEST = path.join(ROOT, 'scripts', 'legacy-ids.json');
 
 const EXPECT = {
   papers: 46,
@@ -171,6 +172,22 @@ for (const id of ids) {
 if (totalQuestions !== EXPECT.questions) fail(`总题数 ${totalQuestions} ≠ ${EXPECT.questions}`);
 
 // ---- 3. 写出产物 ----
+// 2015-2019 旧卷由 import-legacy-papers.mjs 单独并入；重建 2020+ 产物时先保留它们
+const legacyIds = fs.existsSync(LEGACY_MANIFEST) ? JSON.parse(fs.readFileSync(LEGACY_MANIFEST, 'utf8')) : [];
+const legacyIdSet = new Set(legacyIds);
+const preserved = { metas: [], audio: {}, papers: new Map() };
+if (legacyIdSet.size && fs.existsSync(path.join(OUT, 'papers', 'index.json'))) {
+  const oldIndex = JSON.parse(fs.readFileSync(path.join(OUT, 'papers', 'index.json'), 'utf8'));
+  preserved.metas = oldIndex.filter((m) => legacyIdSet.has(m.id));
+  const oldAudioFile = path.join(OUT, 'audio', 'index.json');
+  const oldAudio = fs.existsSync(oldAudioFile) ? JSON.parse(fs.readFileSync(oldAudioFile, 'utf8')) : {};
+  for (const id of legacyIdSet) {
+    const file = path.join(OUT, 'papers', `${id}.json`);
+    if (fs.existsSync(file)) preserved.papers.set(id, fs.readFileSync(file));
+    if (oldAudio[id]) preserved.audio[id] = oldAudio[id];
+  }
+}
+
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(path.join(OUT, 'papers'), { recursive: true });
 fs.mkdirSync(path.join(OUT, 'audio'), { recursive: true });
@@ -187,11 +204,23 @@ for (const id of ids) {
 }
 fs.writeFileSync(path.join(OUT, 'audio', 'index.json'), JSON.stringify(audioOut, null, 1), 'utf8');
 
+if (preserved.papers.size) {
+  const mergedMetas = [...metas, ...preserved.metas].sort((a, b) => (a.id < b.id ? 1 : -1));
+  fs.writeFileSync(path.join(OUT, 'papers', 'index.json'), JSON.stringify(mergedMetas, null, 1), 'utf8');
+  for (const [id, body] of preserved.papers) fs.writeFileSync(path.join(OUT, 'papers', `${id}.json`), body);
+  fs.writeFileSync(
+    path.join(OUT, 'audio', 'index.json'),
+    JSON.stringify({ ...audioOut, ...preserved.audio }, null, 1),
+    'utf8'
+  );
+}
+
 const directCount = Object.values(audioOut).filter((a) => a.from === 'self').length;
 console.log(
   `\x1b[32m✓\x1b[0m 数据管线完成：${ids.length} 套 / ${totalQuestions} 题 / ${(bytes / 1048576).toFixed(2)}MB` +
     ` · 音频 ${directCount} 直连 + ${ids.length - directCount} 经 share → ${Object.keys(audioOut).length}/${ids.length} 可播` +
-    ` · 清洗黏连文本 ${cleaned} 处`
+    ` · 清洗黏连文本 ${cleaned} 处` +
+    (preserved.papers.size ? ` · 保留旧卷 ${preserved.papers.size} 套（全站 ${metas.length + preserved.papers.size} 套）` : '')
 );
 if (warn.length) {
   const shown = warn.slice(0, 3).join('；');

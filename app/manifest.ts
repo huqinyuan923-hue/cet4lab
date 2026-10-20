@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'CET4Lab · 四级真题刷题',
     short_name: 'CET4Lab',
     description:
-      '大学英语四级历年真题在线刷题：46 套 2530 题，整卷限时 / 分题型练习 / 背题三种模式，听力分段精听与逐题解析，免登录、记录只存本机。',
+      '大学英语四级历年真题在线刷题：2015–2026 年 76 套 3980 题，整卷限时 / 分题型练习 / 背题三种模式，听力分段精听与逐题解析，免登录、记录只存本机。',
     start_url: '/',
     scope: '/',
     display: 'standalone',

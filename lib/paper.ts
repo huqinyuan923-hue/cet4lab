@@ -9,6 +9,17 @@ export const PART_LABEL: Record<string, string> = {
   matching: '长篇阅读',
   reading: '仔细阅读',
 };
+export const PART_SHORT: Record<string, string> = {
+  listening: '听力',
+  cloze: '选词',
+  matching: '匹配',
+  reading: '阅读',
+};
+
+export function partsSummary(parts: Record<string, number> | undefined): string {
+  if (!parts) return '';
+  return PART_ORDER.filter((p) => parts[p]).map((p) => `${PART_SHORT[p]} ${parts[p]}`).join(' · ');
+}
 
 export interface NormOption {
   key: string;
@@ -90,10 +101,10 @@ export function numberedParagraphs(passage: string): string[] {
 
 export type ClozeToken = { type: 'text'; text: string } | { type: 'blank'; no: number };
 
-/** 选词填空原文按 __(26)__ 占位切分，便于端上渲染内联空位 */
+/** 选词填空原文按空位占位切分，兼容 `__(26)__` 与 `(26)______` 两种来源格式 */
 export function clozeTokens(passage: string): ClozeToken[] {
   const out: ClozeToken[] = [];
-  const re = /_{1,}\((\d+)\)_{1,}/g;
+  const re = /_{0,}\((\d+)\)_{1,}/g;
   let last = 0;
   for (const m of passage.matchAll(re)) {
     const idx = m.index ?? 0;

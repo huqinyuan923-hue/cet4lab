@@ -10,11 +10,11 @@ export const metadata: Metadata = {
     template: '%s · CET4Lab',
   },
   description:
-    '大学英语四级历年真题在线刷题：46 套真题、2530 道题、听力分段精听、逐题解析、错题本与打卡统计。免登录、免下载，手机打开就能做。',
+    '大学英语四级历年真题在线刷题：2015–2026 年 76 套真题、3980 道题、听力分段精听、逐题解析、错题本与打卡统计。免登录、免下载，手机打开就能做。',
   keywords: ['英语四级', 'CET-4', '四级真题', '四级听力', '四级词汇', '四级备考'],
   openGraph: {
     title: 'CET4Lab · 四级真题刷题',
-    description: '46 套四级真题在线刷，免登录、免下载，带逐题解析与听力分段精听。',
+    description: '76 套四级真题在线刷，覆盖 2015–2026 年，免登录、免下载，带逐题解析与听力分段精听。',
     type: 'website',
     locale: 'zh_CN',
     siteName: 'CET4Lab',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'CET4Lab · 四级真题刷题',
-    description: '46 套四级真题在线刷，免登录、免下载，带逐题解析与听力分段精听。',
+    description: '76 套四级真题在线刷，覆盖 2015–2026 年，免登录、免下载，带逐题解析与听力分段精听。',
     images: ['/og.png'],
   },
   icons: {

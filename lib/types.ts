@@ -30,7 +30,7 @@ export interface TranslationSentence {
 }
 
 export interface Subjective {
-  writing?: { directions?: string; model?: string; modelZh?: string; outline?: string };
+  writing?: { directions?: string; model?: string; modelZh?: string; outline?: string; image?: string };
   translation?: {
     directions?: string;
     source?: string;

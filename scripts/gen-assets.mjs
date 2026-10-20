@@ -59,7 +59,7 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   <text x="152" y="95" font-family="'Segoe UI',Arial,sans-serif" font-size="38" font-weight="700" fill="#171717">CET4Lab</text>
 
   <text x="64" y="272" font-family="${CJK}" font-size="70" font-weight="700" fill="#171717">四级真题，打开就能刷</text>
-  <text x="64" y="342" font-family="${CJK}" font-size="33" fill="#52525b">46 套真题 · 2530 道题 · 听力分段精听 · 逐题解析</text>
+  <text x="64" y="342" font-family="${CJK}" font-size="33" fill="#52525b">76 套真题 · 3980 道题 · 听力分段精听 · 逐题解析</text>
 
   <g font-family="${CJK}" font-size="26" font-weight="500">
     <rect x="64" y="428" width="148" height="52" rx="26" fill="#eeeeff"/><text x="86" y="461" fill="#4f46e5">整卷限时</text>
