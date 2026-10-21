@@ -7,13 +7,13 @@
   --c-surface: 255 255 255;
   --c-surface-2: 243 244 246;
   --c-text: 23 23 23;
-  --c-muted: 113 113 122;
+  --c-muted: 107 107 116;
   --c-border: 228 228 231;
   --c-brand: 79 70 229;
   --c-brand-soft: 238 238 255;
-  --c-ok: 5 150 105;
-  --c-bad: 225 29 72;
-  --c-warn: 217 119 6;
+  --c-ok: 3 107 78;
+  --c-bad: 190 18 60;
+  --c-warn: 180 83 9;
 }
 
 .dark {
@@ -62,7 +62,7 @@ body {
     @apply border-transparent bg-transparent text-muted hover:bg-surface-2 hover:text-ink;
   }
   .link {
-    @apply text-brand underline-offset-4 hover:underline;
+    @apply text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand;
   }
   .prose-en {
     @apply font-serif text-[1.02rem] leading-[1.85] tracking-[0.002em];

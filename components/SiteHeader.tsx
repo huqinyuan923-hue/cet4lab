@@ -43,7 +43,7 @@ export default function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="no-scrollbar -mx-1 flex flex-1 items-center gap-0.5 overflow-x-auto">
+        <nav aria-label="主导航" className="no-scrollbar -mx-1 flex flex-1 items-center gap-0.5 overflow-x-auto">
           {NAV.map((n) => {
             const active = pathname === n.href || pathname.startsWith(n.href + '/');
             return (

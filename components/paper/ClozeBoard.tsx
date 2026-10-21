@@ -36,6 +36,8 @@ export default function ClozeBoard({ paper, questions, answers, revealed, editab
 
   const pick = (key: string) => {
     if (!editable) return;
+    const owner = used.get(key);
+    if (owner !== undefined && owner !== activeNo) return;
     onAnswer(activeNo, key);
     // 只在这里前进：点原文里的已填空位是为了改答案，不该被自动跳走
     const next = nextOpenNo(questions, answers, activeNo);
@@ -50,7 +52,7 @@ export default function ClozeBoard({ paper, questions, answers, revealed, editab
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span className="chip">已填 {filled}/10</span>
+        <span className="chip">已填 {filled}/{questions.length}</span>
         {revealed && wrongCount > 0 && <span className="chip text-bad">错 {wrongCount}</span>}
         <span className="hidden sm:inline">点击原文空位可切换当前题号，再从词库选择。</span>
       </div>
@@ -68,26 +70,29 @@ export default function ClozeBoard({ paper, questions, answers, revealed, editab
               <span className="text-sm font-medium">词库</span>
               <span className="text-xs text-muted">当前 {activeNo} 题</span>
             </div>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
+            <div role="group" aria-label="词库" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
               {letters.map((k) => {
                 const owner = used.get(k);
                 const isMine = answers[String(activeNo)] === k;
+                const taken = owner !== undefined && owner !== activeNo;
                 const isRightForActive = revealed && questions.find((q) => q.no === activeNo)?.answer === k;
                 return (
                   <button
                     key={k}
                     type="button"
-                    disabled={!editable}
+                    disabled={!editable || taken}
                     onClick={() => pick(k)}
+                    title={taken ? `该词已用于第 ${owner} 空` : undefined}
+                    aria-label={taken ? `${k} ${bank[k]}，已用于第 ${owner} 空` : undefined}
                     className={cn(
                       'flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-[13px] transition',
                       isRightForActive && 'border-ok bg-ok/10 text-ok',
                       !isRightForActive && isMine && 'border-brand bg-brand/10 text-brand',
-                      !isRightForActive && !isMine && !!(owner && !isMine) && 'border-line bg-surface-2 text-muted/70',
-                      !isRightForActive && !isMine && !owner && 'border-line hover:border-brand/50 hover:text-brand'
+                      !isRightForActive && !isMine && taken && 'border-line bg-surface-2 text-muted/70',
+                      !isRightForActive && !isMine && !taken && 'border-line hover:border-brand/50 hover:text-brand'
                     )}
                   >
-                    <span className="font-mono text-[11px] opacity-70">{k}</span>
+                    <span className="font-mono text-[11px]">{k}</span>{' '}
                     <span className="truncate">{bank[k]}</span>
                   </button>
                 );
@@ -106,7 +111,7 @@ export default function ClozeBoard({ paper, questions, answers, revealed, editab
       {/* 交卷后：逐空批改 */}
       {revealed && (
         <div className="mt-5 space-y-2.5">
-          <h4 className="text-sm font-medium text-muted">逐空解析</h4>
+          <h3 className="text-sm font-medium text-muted">逐空解析</h3>
           {questions.map((q) => {
             const mine = answers[String(q.no)];
             const ok = mine === q.answer;

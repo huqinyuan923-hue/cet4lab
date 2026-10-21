@@ -4,7 +4,7 @@
  * 单题卡片：四种题型的作答 / 批改展示。
  * reveal = true 时显示正误、正确答案与解析（交卷后、背题模式、练习模式点「查看答案」后）。
  */
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { AudioPiece, Question } from '@/lib/types';
 import { correctTextFor, normOptions, pieceForQuestion } from '@/lib/paper';
 import ExplainPanel from './ExplainPanel';
@@ -12,7 +12,7 @@ import { Icons, cn } from '@/components/ui';
 
 interface Props {
   q: Question;
-  answers: Record<string, string>;
+  selected?: string | null;
   revealed: boolean;
   /** 还能改答案（未交卷且非背题模式） */
   editable: boolean;
@@ -27,9 +27,9 @@ interface Props {
   showZh?: boolean;
 }
 
-export default function QuestionCard({
+function QuestionCard({
   q,
-  answers,
+  selected = null,
   revealed,
   editable,
   onAnswer,
@@ -41,10 +41,31 @@ export default function QuestionCard({
 }: Props) {
   const [peek, setPeek] = useState(false);
   const show = revealed || peek;
-  const mine = answers[String(q.no)] || null;
+  const mine = selected || null;
   const options = normOptions(q);
   const isMatching = q.part === 'matching';
   const pieceIdx = pieces && q.part === 'listening' ? pieceForQuestion(pieces, q.no) : -1;
+  const selectedIdx = options.findIndex((o) => o.key === mine);
+  const tabIndexFor = (idx: number) => (!editable ? -1 : idx === (selectedIdx >= 0 ? selectedIdx : 0) ? 0 : -1);
+
+  /** 原生 radio 的方向键语义：移动焦点同时选中 */
+  const onRadioKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!editable) return;
+    const group = e.currentTarget.closest('[role="radiogroup"]');
+    if (!group) return;
+    const radios = Array.from(group.querySelectorAll<HTMLButtonElement>('[role="radio"]:not([disabled])'));
+    const i = radios.indexOf(e.currentTarget);
+    if (i < 0) return;
+    let next: number;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (i + 1) % radios.length;
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (i - 1 + radios.length) % radios.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = radios.length - 1;
+    else return;
+    e.preventDefault();
+    radios[next]!.focus();
+    radios[next]!.click();
+  };
 
   return (
     <article
@@ -113,8 +134,8 @@ export default function QuestionCard({
 
       {/* 选项：匹配题为字母选择器，其余为列表 */}
       {isMatching ? (
-        <div className="flex flex-wrap gap-1.5">
-          {options.map((o) => {
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={`第 ${q.no} 题段落选择`}>
+          {options.map((o, idx) => {
             const isMine = mine === o.key;
             const isRight = show && q.answer === o.key;
             const isWrongPick = show && isMine && !isRight;
@@ -122,8 +143,13 @@ export default function QuestionCard({
               <button
                 key={o.key}
                 type="button"
+                role="radio"
+                aria-checked={isMine}
+                aria-label={`第 ${q.no} 题选择 ${o.key} 段`}
+                tabIndex={tabIndexFor(idx)}
                 disabled={!editable}
                 onClick={() => onAnswer(q.no, o.key)}
+                onKeyDown={onRadioKeyDown}
                 className={cn(
                   'grid h-9 w-9 place-items-center rounded-lg border text-sm font-medium transition',
                   isRight && 'border-ok bg-ok/10 text-ok',
@@ -139,53 +165,54 @@ export default function QuestionCard({
           })}
         </div>
       ) : (
-        <ul className="space-y-2" role="radiogroup" aria-label={`第 ${q.no} 题选项`}>
-          {options.map((o) => {
+        <div className="space-y-2" role="radiogroup" aria-label={`第 ${q.no} 题选项`}>
+          {options.map((o, idx) => {
             const isMine = mine === o.key;
             const isRight = show && q.answer === o.key;
             const isWrongPick = show && isMine && !isRight;
             return (
-              <li key={o.key}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={isMine}
-                  disabled={!editable}
-                  onClick={() => onAnswer(q.no, o.key)}
+              <button
+                key={o.key}
+                type="button"
+                role="radio"
+                aria-checked={isMine}
+                tabIndex={tabIndexFor(idx)}
+                disabled={!editable}
+                onClick={() => onAnswer(q.no, o.key)}
+                onKeyDown={onRadioKeyDown}
+                className={cn(
+                  'flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition',
+                  isRight && 'border-ok bg-ok/[0.08]',
+                  isWrongPick && 'border-bad bg-bad/[0.07]',
+                  !show && isMine && 'border-brand bg-brand/[0.07]',
+                  !show && !isMine && 'border-line bg-surface hover:border-brand/40',
+                  (!editable || show) && 'cursor-default'
+                )}
+              >
+                <span
                   className={cn(
-                    'flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition',
-                    isRight && 'border-ok bg-ok/[0.08]',
-                    isWrongPick && 'border-bad bg-bad/[0.07]',
-                    !show && isMine && 'border-brand bg-brand/[0.07]',
-                    !show && !isMine && 'border-line bg-surface hover:border-brand/40',
-                    (!editable || show) && 'cursor-default'
+                    'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md text-xs font-semibold',
+                    isRight
+                      ? 'bg-ok text-white'
+                      : isWrongPick
+                        ? 'bg-bad text-white'
+                        : isMine
+                          ? 'bg-brand text-white dark:text-[rgb(9_11_17)]'
+                          : 'bg-surface-2 text-muted'
                   )}
                 >
-                  <span
-                    className={cn(
-                      'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md text-xs font-semibold',
-                      isRight
-                        ? 'bg-ok text-white'
-                        : isWrongPick
-                          ? 'bg-bad text-white'
-                          : isMine
-                            ? 'bg-brand text-white dark:text-[rgb(9_11_17)]'
-                            : 'bg-surface-2 text-muted'
-                    )}
-                  >
-                    {o.key}
-                  </span>
-                  <span className="flex-1">
-                    <span lang="en" className="block font-serif text-[15px] leading-relaxed">{o.text}</span>
-                    {showZh && o.textZh && (
-                      <span className="mt-0.5 block text-[12.5px] leading-relaxed text-muted">{o.textZh}</span>
-                    )}
-                  </span>
-                </button>
-              </li>
+                  {o.key}
+                </span>
+                <span className="flex-1">
+                  <span lang="en" className="block font-serif text-[15px] leading-relaxed">{o.text}</span>
+                  {showZh && o.textZh && (
+                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-muted">{o.textZh}</span>
+                  )}
+                </span>
+              </button>
             );
           })}
-        </ul>
+        </div>
       )}
 
       {/* 批改：正确答案 + 解析 */}
@@ -205,3 +232,5 @@ export default function QuestionCard({
     </article>
   );
 }
+
+export default memo(QuestionCard);

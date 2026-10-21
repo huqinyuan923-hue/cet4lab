@@ -1,7 +1,7 @@
 'use client';
 
 /** 答题卡抽屉：55 题一览、已答/正误状态、点击跳题 */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Paper } from '@/lib/types';
 import { PART_LABEL, PART_ORDER } from '@/lib/paper';
 import { Icons, cn } from '@/components/ui';
@@ -20,14 +20,50 @@ export default function AnswerSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const focusables = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((el) => el.offsetParent !== null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      returnFocusRef.current?.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -41,10 +77,11 @@ export default function AnswerSheet({
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" onClick={onClose} aria-hidden="true" />
-      <aside
+      <div
         role="dialog"
         aria-modal="true"
         aria-label="答题卡"
+        ref={panelRef}
         className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl"
       >
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
@@ -52,7 +89,7 @@ export default function AnswerSheet({
           <span className="chip">
             {answered}/{paper.questions.length}
           </span>
-          <button type="button" onClick={onClose} className="btn-ghost btn ml-auto px-2 py-1" aria-label="关闭答题卡">
+          <button ref={closeRef} type="button" onClick={onClose} className="btn-ghost btn ml-auto px-2 py-1" aria-label="关闭答题卡">
             <Icons.Cross className="h-4 w-4" />
           </button>
         </header>
@@ -83,6 +120,7 @@ export default function AnswerSheet({
                         type="button"
                         onClick={() => jump(q.no)}
                         title={`第 ${q.no} 题${mine ? ` · 你选 ${mine}` : ' · 未作答'}`}
+                        aria-label={`第 ${q.no} 题，${state === 'right' ? '答对' : state === 'wrong' ? '答错' : mine ? `已作答，你选 ${mine}` : '未作答'}`}
                         className={cn(
                           'grid h-8 place-items-center rounded-lg border text-xs font-medium transition hover:border-brand/60 hover:text-brand',
                           state === 'right' && 'border-ok/50 bg-ok/12 text-ok',
@@ -121,7 +159,7 @@ export default function AnswerSheet({
             <span>点击题号可跳转</span>
           )}
         </footer>
-      </aside>
+      </div>
     </div>
   );
 }

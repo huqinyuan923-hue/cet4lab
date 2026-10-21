@@ -18,7 +18,7 @@ export default function SiteFooter() {
           ，均未声明内容许可），仅供个人备考学习使用。
         </p>
         <p>听力音频不存储于本站，仅外链或经代理实时转发；如权利人提出异议将立即下线相关内容。</p>
-        <nav className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+        <nav aria-label="页脚导航" className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
           <Link className="link" href="/papers">
             真题
           </Link>

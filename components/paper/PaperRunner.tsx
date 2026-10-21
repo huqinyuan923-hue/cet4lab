@@ -45,9 +45,19 @@ const SECTION_TIPS: Record<string, string> = {
   reading: '两篇仔细阅读，建议先看题干再读原文。',
 };
 
-export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: PaperMeta; initialMode?: Mode }) {
+const EMPTY_ANSWERS: Record<string, string> = {};
+const EMPTY_QUESTIONS: Question[] = [];
+
+export default function PaperRunner({
+  meta,
+  audio,
+  initialMode = 'exam',
+}: {
+  meta: PaperMeta;
+  audio: AudioEntry | null;
+  initialMode?: Mode;
+}) {
   const [paper, setPaper] = useState<Paper | null>(null);
-  const [audio, setAudio] = useState<AudioEntry | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode);
   const [answers, setAnswersState] = useState<Record<string, string>>({});
@@ -60,6 +70,12 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   const [reloadKey, setReloadKey] = useState(0);
   const playerRef = useRef<AudioPlayerHandle | null>(null);
   const submittingRef = useRef(false);
+  const progressRef = useRef<Progress | null>(null);
+  const initialSpeed = useMemo(() => getSettings().defaultSpeed, []);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
 
   /* ---------- 加载 ---------- */
   useEffect(() => {
@@ -67,16 +83,11 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
     setLoadError(null);
     (async () => {
       try {
-        const [pRes, aRes] = await Promise.all([
-          fetch(`/data/papers/${meta.id}.json`),
-          fetch('/data/audio/index.json'),
-        ]);
+        const pRes = await fetch(`/data/papers/${meta.id}.json`);
         if (!pRes.ok) throw new Error(`试卷数据加载失败（${pRes.status}）`);
         const p = (await pRes.json()) as Paper;
-        const aMap = aRes.ok ? ((await aRes.json()) as Record<string, AudioEntry>) : {};
         if (!alive) return;
         setPaper(p);
-        setAudio(aMap[meta.id] ?? null);
       } catch (e) {
         if (alive) setLoadError(e instanceof Error ? e.message : '数据加载失败');
       }
@@ -136,6 +147,15 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
   }, [mode, submitted, progress, meta.id]);
 
   const questions = paper?.questions ?? [];
+  const questionsByPart = useMemo(() => {
+    const map = new Map<string, Question[]>();
+    for (const q of questions) {
+      const list = map.get(q.part);
+      if (list) list.push(q);
+      else map.set(q.part, [q]);
+    }
+    return map;
+  }, [questions]);
   const availableParts = useMemo<string[]>(() => {
     if (!paper) return PART_ORDER;
     const present = new Set(paper.questions.map((q) => q.part));
@@ -181,14 +201,25 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
         persistAnswers(meta.id, next);
         return next;
       });
-      if (!progress || progress.status !== 'in-progress') {
-        const next: Progress = { status: 'in-progress', startedAt: progress?.startedAt ?? Date.now(), timed: mode === 'exam', examDeadline: progress?.examDeadline };
+      const current = progressRef.current;
+      if (!current || current.status !== 'in-progress') {
+        const next: Progress = {
+          status: 'in-progress',
+          startedAt: current?.startedAt ?? Date.now(),
+          timed: mode === 'exam',
+          examDeadline: current?.examDeadline,
+        };
         persistProgress(meta.id, next);
+        progressRef.current = next;
         setProgressState(next);
       }
     },
-    [editable, meta.id, progress, mode]
+    [editable, meta.id, mode]
   );
+
+  const onPlayPiece = useCallback((i: number) => {
+    playerRef.current?.playPiece(i);
+  }, []);
 
   /* ---------- 交卷 ---------- */
   const submit = useCallback(() => {
@@ -238,9 +269,6 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [paper, answers, meta.id, progress, mode]);
 
-  const voidSubmit = useCallback(() => submit(), [submit]);
-
-  /* ---------- 重做 ---------- */
   const restart = useCallback(() => {
     if (!window.confirm('确定重新作答吗？本卷此前的作答记录与得分将被清除（错题本不受影响）。')) return;
     persistAnswers(meta.id, {});
@@ -281,7 +309,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
 
   const sections = [...availableParts, ...(hasSubjective ? ['subjective'] : [])];
   const partsVisible = mode === 'practice' ? [activePart] : sections;
-  const byPart = (p: string) => paper.questions.filter((q) => q.part === p);
+  const byPart = (p: string) => questionsByPart.get(p) ?? EMPTY_QUESTIONS;
 
   return (
     <div className="pb-24">
@@ -437,21 +465,21 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
               <SectionTitle part={PART_LABEL[part]} tip={SECTION_TIPS[part]} count={qs.length} answered={qs.filter((q) => answers[String(q.no)]).length} />
               {/* 听力播放器吸顶：滚动到第 8 题以后仍可操作播放/分段 */}
               <div className="sticky top-[7.25rem] z-20 mb-3.5">
-                <AudioPlayer ref={playerRef} audio={audio} storageKey={meta.id} initialSpeed={getSettings().defaultSpeed} compact />
+                <AudioPlayer ref={playerRef} audio={audio} storageKey={meta.id} initialSpeed={initialSpeed} compact />
               </div>
               <div className="space-y-3">
                 {qs.map((q) => (
                   <QuestionCard
                     key={q.no}
                     q={q}
-                    answers={answers}
+                    selected={answers[String(q.no)] ?? null}
                     revealed={revealed}
                     editable={editable}
                     onAnswer={onAnswer}
                     allowPeek={mode === 'practice'}
-                      showZh={showZh}
+                    showZh={showZh}
                     pieces={audio?.pieces}
-                    onPlayPiece={(i) => playerRef.current?.playPiece(i)}
+                    onPlayPiece={onPlayPiece}
                   />
                 ))}
               </div>
@@ -473,7 +501,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
             <section key={part} className="mb-6">
               <SectionTitle part={PART_LABEL[part]} tip={SECTION_TIPS[part]} count={qs.length} answered={qs.filter((q) => answers[String(q.no)]).length} />
               <SplitPane
-                passage={<PassagePane paper={paper} q={qs[0]} answers={answers} reveal={revealed} />}
+                passage={<PassagePane paper={paper} q={qs[0]} answers={EMPTY_ANSWERS} reveal={revealed} />}
                 paneKey="matching"
               >
                 <div className="space-y-3">
@@ -481,7 +509,7 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
                     <QuestionCard
                       key={q.no}
                       q={q}
-                      answers={answers}
+                      selected={answers[String(q.no)] ?? null}
                       revealed={revealed}
                       editable={editable}
                       onAnswer={onAnswer}
@@ -508,19 +536,19 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
                     key={g}
                     paneKey={`reading-${g}`}
                     title={`第 ${g} 篇`}
-                    passage={<PassagePane paper={paper} q={qs[0]} answers={answers} reveal={revealed} />}
+                    passage={<PassagePane paper={paper} q={qs[0]} answers={EMPTY_ANSWERS} reveal={revealed} />}
                   >
                     <div className="space-y-3">
                       {qs.map((q) => (
                         <QuestionCard
                           key={q.no}
                           q={q}
-                          answers={answers}
+                          selected={answers[String(q.no)] ?? null}
                           revealed={revealed}
                           editable={editable}
                           onAnswer={onAnswer}
                           allowPeek={mode === 'practice'}
-                      showZh={showZh}
+                          showZh={showZh}
                         />
                       ))}
                     </div>
@@ -588,7 +616,10 @@ function SplitPane({
         {title && <span className="text-xs text-muted">{title}</span>}
       </div>
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
-        <div className={cn('lg:sticky lg:top-32 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-1', tab === 'passage' ? 'block' : 'hidden lg:block')}>
+        <div
+          tabIndex={0}
+          className={cn('lg:sticky lg:top-32 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-1', tab === 'passage' ? 'block' : 'hidden lg:block')}
+        >
           <div className="card p-4 sm:p-5">{passage}</div>
         </div>
         <div className={cn('mt-3 lg:mt-0', tab === 'questions' ? 'block' : 'hidden lg:block')}>{children}</div>

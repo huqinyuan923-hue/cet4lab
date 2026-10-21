@@ -7,7 +7,7 @@
  *  3) 均失败：展示来源页外链兜底
  * 附加：分段跳转（基于 pieces）、本段循环、倍速、进度记忆。
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { AudioEntry } from '@/lib/types';
 import { fmtTime, pieceQuestionRange } from '@/lib/paper';
 import { Icons, cn } from '@/components/ui';
@@ -317,4 +317,4 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, {
   );
 });
 
-export default AudioPlayer;
+export default memo(AudioPlayer);

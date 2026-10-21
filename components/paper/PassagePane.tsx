@@ -4,7 +4,7 @@
  * 原文面板：阅读（P1/P2 分段）/ 匹配（A) 逐段）/ 完形（__(n)__ 内联空位）。
  * 附带「点词收藏」：选中英文单词弹出浮层可加入生词本或朗读。
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { Paper, Question } from '@/lib/types';
 import { clozeTokens, findSentence, matchingParagraphs, numberedParagraphs } from '@/lib/paper';
 import { addWord } from '@/lib/storage';
@@ -20,7 +20,7 @@ interface Props {
   className?: string;
 }
 
-export default function PassagePane({ paper, q, answers, reveal = false, activeNo, onPick, className }: Props) {
+export default memo(function PassagePane({ paper, q, answers, reveal = false, activeNo, onPick, className }: Props) {
   const [pop, setPop] = useState<{ word: string; x: number; y: number; saved: boolean } | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
@@ -115,10 +115,10 @@ export default function PassagePane({ paper, q, answers, reveal = false, activeN
                   wrong && 'bg-bad/10 text-bad ring-1 ring-bad/40',
                   !reveal && activeNo === t.no && 'bg-brand text-white dark:text-[rgb(9_11_17)]',
                   !reveal && activeNo !== t.no && picked && 'bg-brand-soft text-brand',
-                  !reveal && !picked && 'bg-surface-2 text-muted hover:text-brand'
+                  !reveal && activeNo !== t.no && !picked && 'bg-surface-2 text-muted hover:text-brand'
                 )}
               >
-                <span className="opacity-70">{t.no}.</span>
+                <span>{t.no}.</span>
                 {picked ? bank[picked] : '____'}
               </button>
             );
@@ -175,4 +175,4 @@ export default function PassagePane({ paper, q, answers, reveal = false, activeN
       )}
     </div>
   );
-}
+});

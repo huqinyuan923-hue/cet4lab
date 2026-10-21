@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { findPaper, loadPaperIndex } from '@/lib/server-data';
+import { findAudio, findPaper, loadPaperIndex } from '@/lib/server-data';
 import PaperRunner from '@/components/paper/PaperRunner';
 
 export function generateStaticParams() {
@@ -25,5 +25,5 @@ export default async function PaperPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const meta = findPaper(id);
   if (!meta) notFound();
-  return <PaperRunner meta={meta} initialMode="exam" />;
+  return <PaperRunner meta={meta} audio={findAudio(id)} initialMode="exam" />;
 }
