@@ -30,7 +30,13 @@ export interface TranslationSentence {
 }
 
 export interface Subjective {
-  writing?: { directions?: string; model?: string; modelZh?: string; outline?: string; image?: string };
+  writing?: {
+    directions?: string;
+    model?: string;
+    modelZh?: string;
+    outline?: { no: number; text: string }[];
+    image?: string;
+  };
   translation?: {
     directions?: string;
     source?: string;
@@ -55,7 +61,7 @@ export interface PaperMeta {
   nos: number[];
   parts: Record<string, number>;
   period?: string;
-  year?: number;
+  year?: string;
   half?: string;
   month?: number;
   share?: string;

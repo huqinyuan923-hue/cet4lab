@@ -7,6 +7,10 @@ export function generateStaticParams() {
   return loadPaperIndex().map((m) => ({ id: m.id }));
 }
 
+// 关掉按需生成：否则未知 id 会用 200 返回「套卷不存在」页（软 404），
+// 爬虫会把不存在的套卷当正常页面收录。
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const meta = findPaper(id);

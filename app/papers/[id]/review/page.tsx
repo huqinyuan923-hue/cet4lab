@@ -7,6 +7,9 @@ export function generateStaticParams() {
   return loadPaperIndex().map((m) => ({ id: m.id }));
 }
 
+// 与 /papers/[id] 同步：未知 id 必须真 404，不能 200 渲染「不存在」
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const meta = findPaper(id);

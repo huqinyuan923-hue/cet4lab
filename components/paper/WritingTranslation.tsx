@@ -58,9 +58,18 @@ export default function WritingTranslation({
             />
           )}
           <div className="space-y-2.5">
-            {writing.outline && (
+            {!!writing.outline?.length && (
               <Collapse title="提纲思路">
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink/85">{writing.outline}</p>
+                <div className="space-y-2.5">
+                  {writing.outline.map((o) => (
+                    <div key={o.no} className="flex gap-2.5">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-medium text-brand tabular-nums">
+                        {o.no}
+                      </span>
+                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink/85">{o.text}</p>
+                    </div>
+                  ))}
+                </div>
               </Collapse>
             )}
             {writing.model && (
