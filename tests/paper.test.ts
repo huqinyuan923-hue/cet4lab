@@ -17,6 +17,7 @@ import {
   fmtTime,
   letter,
   matchingParagraphs,
+  nextOpenNo,
   normOptions,
   numberedParagraphs,
   pieceForQuestion,
@@ -102,6 +103,16 @@ test('stemFor：cloze 空题干时从原文还原含空位的那句', () => {
   assert.equal(stemFor(q({ part: 'reading', no: 50, stem: '', passage })), '', '非 cloze 不兜底');
   assert.equal(clozeSentence(passage, 26), 'They can be __(26)__ resources.');
   assert.equal(clozeSentence('', 26), '');
+});
+
+test('nextOpenNo：选完一个词跳到下一个空位，已填空位可重选', () => {
+  const qs = [{ no: 26 }, { no: 27 }, { no: 28 }];
+  assert.equal(nextOpenNo(qs, {}, 26), 27, '刚填的 26 不算空位');
+  assert.equal(nextOpenNo(qs, { '27': 'K' }, 26), 28);
+  assert.equal(nextOpenNo(qs, { '27': 'K', '28': 'L' }, 26), null);
+  // 改答案：26 已填但仍是当前空位，选词后应跳过它去找下一个空位
+  assert.equal(nextOpenNo(qs, { '26': 'A' }, 26), 27);
+  assert.equal(nextOpenNo(qs, { '26': 'A', '27': 'B', '28': 'C' }, 28), null);
 });
 
 test('numberedParagraphs：剥掉 P1 前缀，clozeTokens：按 __(n)__ 切', () => {

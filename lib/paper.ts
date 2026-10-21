@@ -87,6 +87,12 @@ export function stemFor(q: Question): string {
   return q.part === 'cloze' ? clozeSentence(q.passage || '', q.no) : '';
 }
 
+/** 选词填空选完一个词后该聚焦的下一个空位；`justFilled` 刚被填上，不算空位 */
+export function nextOpenNo(questions: { no: number }[], answers: Record<string, string>, justFilled: number): number | null {
+  const next = questions.find((q) => q.no !== justFilled && !answers[String(q.no)]);
+  return next ? next.no : null;
+}
+
 /**
  * 长篇阅读原文按 "A) " 段落标记切分。
  * 字母表必须到 Z：2015-06-3 有 A–Q 共 17 段，用 [A-P] 会把 Q 段整段吞掉，

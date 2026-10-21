@@ -1,8 +1,9 @@
 'use client';
 
 /** 选词填空专用面板：原文内联空位 + 共享词库 + 交卷后逐空批改 */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Paper, Question } from '@/lib/types';
+import { nextOpenNo } from '@/lib/paper';
 import PassagePane from './PassagePane';
 import ExplainPanel from './ExplainPanel';
 import { Icons, cn } from '@/components/ui';
@@ -22,14 +23,6 @@ export default function ClozeBoard({ paper, questions, answers, revealed, editab
   const firstOpen = questions.find((q) => !answers[String(q.no)])?.no ?? questions[0]?.no;
   const [activeNo, setActiveNo] = useState<number>(firstOpen);
 
-  useEffect(() => {
-    if (revealed) return;
-    if (answers[String(activeNo)]) {
-      const next = questions.find((q) => !answers[String(q.no)]);
-      if (next) setActiveNo(next.no);
-    }
-  }, [answers, activeNo, questions, revealed]);
-
   const used = useMemo(() => {
     const m = new Map<string, number>();
     for (const q of questions) {
@@ -44,6 +37,9 @@ export default function ClozeBoard({ paper, questions, answers, revealed, editab
   const pick = (key: string) => {
     if (!editable) return;
     onAnswer(activeNo, key);
+    // 只在这里前进：点原文里的已填空位是为了改答案，不该被自动跳走
+    const next = nextOpenNo(questions, answers, activeNo);
+    if (next !== null) setActiveNo(next);
   };
 
   const wrongCount = questions.filter((q) => {
