@@ -1,0 +1,45 @@
+name: Verify
+
+# 这个仓库此前没有任何 CI：typecheck 只能靠本地手跑，数据产物错了也要等线上炸。
+# 四道守卫（数据闸门 → 单测 → 类型 → 构建）+ 真实路由冒烟，一次跑全。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # node --test 需要原生 TS 类型剥离
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # CI 机器上没有只读源仓库，这一步会沿用已提交的 public/data，
+      # 所以产物本身的正确性必须由下面两步负责，不能指望 build:data 兜底。
+      - name: 数据体检闸门
+        run: pnpm test:data
+
+      - name: 单元测试与数据契约
+        run: pnpm test
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 生产构建
+        run: pnpm build
+
+      - name: 路由冒烟
+        run: |
+          pnpm start &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:3457/ >/dev/null && break; sleep 1; done
+          node scripts/smoke.mjs http://127.0.0.1:3457

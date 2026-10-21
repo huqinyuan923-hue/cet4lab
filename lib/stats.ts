@@ -22,7 +22,7 @@ export interface HeatCell {
   count: number;
 }
 
-/** 近 N 周打卡热力图单元格（按周对齐，周日为一列之末） */
+/** 近 N 周打卡热力图单元格（按周对齐，周日为首格、周六为一列之末） */
 export function heatmapCells(days: string[], weeks = 12, now = new Date()): HeatCell[] {
   const counts: Record<string, number> = {};
   for (const d of days) counts[d] = (counts[d] || 0) + 1;

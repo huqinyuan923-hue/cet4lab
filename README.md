@@ -58,9 +58,16 @@ LEGACY_SRC=<旧题库目录> LEGACY_AUDIO_META=<listeningMeta.js> node scripts/i
 
 ```bash
 pnpm typecheck    # tsc --noEmit
+pnpm test         # node:test 单测（纯函数 + public/data 契约），零依赖
+pnpm test:data    # 数据体检闸门，超出 scripts/quality-baseline.json 即失败
 pnpm build        # 生产构建
 pnpm start        # 生产服务
+pnpm smoke        # 对 http://127.0.0.1:3457 跑路由/代理/响应头冒烟（需先 pnpm start）
+pnpm verify       # typecheck + test + test:data
 ```
+
+CI（`.github/workflows/verify.yml`）跑同一套：数据闸门 → 单测 → 类型 → 构建 → 冒烟。
+构建机上没有源仓库，线上产物就是已提交的 `public/data`，所以契约测试与闸门是它唯一的守卫。
 
 ## 数据来源与版权
 

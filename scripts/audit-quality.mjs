@@ -1,9 +1,16 @@
 /**
  * 数据医生：全面体检 46 套卷的数据质量。只读，不改数据。
- * 用法：node scripts/audit-quality.mjs
+ * 用法：node scripts/audit-quality.mjs            # 人工排查，打印明细
+ *       node scripts/audit-quality.mjs --gate    # CI 闸门，超出基线即 exit 1
+ * 基线 scripts/quality-baseline.json 只约束「中文译文缺失」这类源数据固有缺口，
+ * 其余维度必须为 0；数据修复后请把基线改小，闸门只许变好不许变坏。
  */
 import fs from 'node:fs';
 import path from 'node:path';
+
+const GATE = process.argv.includes('--gate');
+const BASELINE_FILE = path.resolve('scripts/quality-baseline.json');
+const SOFT = ['中文译文缺失'];
 
 const DIR = path.resolve('public/data/papers');
 const files = fs.readdirSync(DIR).filter((f) => /^\d{4}-\d{2}-\d\.json$/.test(f)).sort();
@@ -90,10 +97,12 @@ for (const f of files) {
   if (!s.writing?.directions) issues.主观题异常.push({ tag: p.id, note: '缺写作题目' });
   if (!s.translation?.source) issues.主观题异常.push({ tag: p.id, note: '缺翻译原文' });
   texts.forEach((t) => { if (typeof t === 'string' && CONTAM.test(t)) issues.主观题异常.push({ tag: p.id, note: '主观题含后续文本残留' }); });
-  if (issues.主观题异常.length && !Array.isArray(s.translation?.sentences)) issues.主观题异常.push({ tag: p.id, note: '缺逐句拆解' });
+  if (s.translation && !Array.isArray(s.translation.sentences)) issues.主观题异常.push({ tag: p.id, note: '缺逐句拆解' });
 }
 
 let total = 0;
+const hard = [];
+const soft = [];
 for (const [name, list] of Object.entries(issues)) {
   total += list.length;
   if (!list.length) { console.log(`✓ ${name}: 0`); continue; }
@@ -101,5 +110,25 @@ for (const [name, list] of Object.entries(issues)) {
   const shown = list.slice(0, 8);
   for (const it of shown) console.log('   ', JSON.stringify(it).slice(0, 150));
   if (list.length > shown.length) console.log(`    …还有 ${list.length - shown.length} 条`);
+  (SOFT.includes(name) ? soft : hard).push({ name, n: list.length });
 }
 console.log(`\n===== 问题总计: ${total} 条 =====`);
+
+if (!GATE) process.exit(0);
+
+if (!fs.existsSync(BASELINE_FILE)) {
+  console.error(`\x1b[31m✗ 闸门需要基线文件：${path.relative(process.cwd(), BASELINE_FILE)}\x1b[0m`);
+  process.exit(1);
+}
+const baseline = JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'));
+const problems = hard.map(({ name, n }) => `${name} ${n} 条（硬指标，必须为 0）`);
+for (const { name, n } of soft) {
+  const allow = baseline[name] ?? 0;
+  if (n > allow) problems.push(`${name} ${n} 条 > 基线 ${allow} 条`);
+}
+if (problems.length) {
+  console.error(`\x1b[31m✗ 数据闸门失败：\n  - ${problems.join('\n  - ')}\x1b[0m`);
+  process.exit(1);
+}
+const softLabel = soft.map((s) => `${s.name} ${s.n}/${baseline[s.name] ?? 0}`).join('、') || '无';
+console.log(`\x1b[32m✓\x1b[0m 数据闸门通过（固有缺口：${softLabel}）`);
