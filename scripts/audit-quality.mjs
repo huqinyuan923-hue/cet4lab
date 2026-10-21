@@ -1,16 +1,19 @@
 /**
- * 数据医生：全面体检 46 套卷的数据质量。只读，不改数据。
+ * 数据医生：全面体检全部套卷的数据质量。只读，不改数据。
  * 用法：node scripts/audit-quality.mjs            # 人工排查，打印明细
  *       node scripts/audit-quality.mjs --gate    # CI 闸门，超出基线即 exit 1
  * 基线 scripts/quality-baseline.json 只约束「中文译文缺失」这类源数据固有缺口，
  * 其余维度必须为 0；数据修复后请把基线改小，闸门只许变好不许变坏。
+ * 注意：原文/题干的校验刻意复用 lib/paper.ts 的渲染函数——闸门要保的是「页面渲染得出来」，
+ * 而不是某种来源格式。
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { clozeSentence, matchingParagraphs, numberedParagraphs } from '../lib/paper.ts';
 
 const GATE = process.argv.includes('--gate');
 const BASELINE_FILE = path.resolve('scripts/quality-baseline.json');
-const SOFT = ['中文译文缺失'];
+const SOFT = ['中文译文缺失', '主观题内容缺失', '原文分段缺失'];
 
 const DIR = path.resolve('public/data/papers');
 const files = fs.readdirSync(DIR).filter((f) => /^\d{4}-\d{2}-\d\.json$/.test(f)).sort();
@@ -27,6 +30,8 @@ const issues = {
   脏字符: [],
   段落标记残留: [],
   主观题异常: [],
+  主观题内容缺失: [],
+  原文分段缺失: [],
 };
 
 const CONTAM = /([.!?]["')\]]?)\s+(?=\d{1,3}\s+["'\u201c]?[A-Z]|Questions?\s+\d|Directions:|Section\s+[ABC]\b)/;
@@ -57,19 +62,22 @@ for (const f of files) {
     opts.forEach((o) => { const k = o.trim().toLowerCase(); if (k) seen.set(k, (seen.get(k) || 0) + 1); });
     for (const [k, c] of seen) if (c > 1) issues.选项重复.push({ tag, text: k.slice(0, 50), c });
 
-    // 4) 题干
-    if (!q.stem || !q.stem.trim()) issues.题干异常.push({ tag, note: '题干为空' });
-    else if (CONTAM.test(q.stem)) issues.题干异常.push({ tag, note: '题干含后续文本', head: q.stem.slice(0, 70) });
-    else if (MARKER_HEAD.test(q.stem)) issues.段落标记残留.push({ tag, field: 'stem', head: q.stem.slice(0, 50) });
+    // 4) 题干：cloze 允许 stem 为空，但必须能从原文空位还原出语境（错题本依赖它）
+    const effectiveStem = (q.stem || '').trim() || (q.part === 'cloze' ? clozeSentence(q.passage || '', q.no) : '');
+    if (!effectiveStem) issues.题干异常.push({ tag, note: q.part === 'cloze' ? '题干为空且原文取不到空位所在句' : '题干为空' });
+    else if (CONTAM.test(effectiveStem)) issues.题干异常.push({ tag, note: '题干含后续文本', head: effectiveStem.slice(0, 70) });
+    else if (MARKER_HEAD.test(effectiveStem)) issues.段落标记残留.push({ tag, field: 'stem', head: effectiveStem.slice(0, 50) });
 
-    // 5) 原文
+    // 5) 原文：直接问渲染函数能不能切出段，切不出来页面才是真坏的
     const psg = q.passage || '';
     if (psg) {
       if (CONTAM.test(psg)) issues.原文异常.push({ tag, note: '原文含 Questions/Directions 残留' });
       if (DIRTY.test(psg)) issues.脏字符.push({ tag, field: 'passage' });
-      // 阅读/匹配原文段落标记是否成体系
-      if (q.part === 'reading' && !/^P\d+/.test(psg)) issues.原文异常.push({ tag, note: '阅读原文缺 P 段标记' });
-      if (q.part === 'matching' && !/^[A-P]\)/.test(psg)) issues.原文异常.push({ tag, note: '匹配原文缺 A) 段标记' });
+      // 切成一整段只是「读起来累」，段落信息在转制时就丢了、本机源也没有，故列为固有缺口而非硬伤
+      if (q.part === 'reading' && numberedParagraphs(psg).length < 2) issues.原文分段缺失.push({ tag, note: '阅读原文切不出多段，整卷糊成一面墙' });
+      if (q.part === 'matching' && matchingParagraphs(psg).length < (q.paraOptions || []).length)
+        issues.原文异常.push({ tag, note: `匹配原文只切出 ${matchingParagraphs(psg).length} 段，选项集有 ${(q.paraOptions || []).length} 个` });
+      if (q.part === 'cloze' && !clozeSentence(psg, q.no)) issues.原文异常.push({ tag, note: `原文里没有 (${q.no}) 空位` });
     }
 
     // 6) 中文译文缺失 / 不匹配
@@ -91,13 +99,34 @@ for (const f of files) {
     }
   }
 
-  // 9) 主观题
+  // 9) 主观题：结构坏了算硬伤，源数据本来就没收录算固有缺口
   const s = p.subjective || {};
   const texts = [s.writing?.directions, s.writing?.model, s.writing?.modelZh, s.translation?.source, s.translation?.reference];
-  if (!s.writing?.directions) issues.主观题异常.push({ tag: p.id, note: '缺写作题目' });
-  if (!s.translation?.source) issues.主观题异常.push({ tag: p.id, note: '缺翻译原文' });
   texts.forEach((t) => { if (typeof t === 'string' && CONTAM.test(t)) issues.主观题异常.push({ tag: p.id, note: '主观题含后续文本残留' }); });
-  if (s.translation && !Array.isArray(s.translation.sentences)) issues.主观题异常.push({ tag: p.id, note: '缺逐句拆解' });
+  if ('outline' in (s.writing || {}) && !Array.isArray(s.writing.outline)) {
+    issues.主观题异常.push({ tag: p.id, note: `writing.outline 不是数组而是 ${typeof s.writing.outline}，展开即整页崩` });
+  }
+  if (Array.isArray(s.writing?.outline)) {
+    for (const o of s.writing.outline) {
+      if (typeof o?.no !== 'number' || !o?.text) issues.主观题异常.push({ tag: p.id, note: `提纲项缺 no/text：${JSON.stringify(o).slice(0, 40)}` });
+    }
+  }
+  if (Array.isArray(s.translation?.sentences)) {
+    for (const sent of s.translation.sentences) {
+      if (!sent?.trunk || !sent?.downgrade || !sent?.grammar || !sent?.target) {
+        issues.主观题异常.push({ tag: p.id, note: '逐句拆解缺字段' });
+        break;
+      }
+    }
+  }
+  if (!s.writing?.directions) issues.主观题内容缺失.push({ tag: p.id, note: '缺写作题目' });
+  if (!s.writing?.model) issues.主观题内容缺失.push({ tag: p.id, note: '缺范文' });
+  if (!s.writing?.modelZh) issues.主观题内容缺失.push({ tag: p.id, note: '缺范文译文' });
+  if (!s.translation?.source) issues.主观题内容缺失.push({ tag: p.id, note: '缺翻译原文' });
+  if (!s.translation?.reference) issues.主观题内容缺失.push({ tag: p.id, note: '缺参考译文' });
+  if (!Array.isArray(s.translation?.sentences) || !s.translation.sentences.length) {
+    issues.主观题内容缺失.push({ tag: p.id, note: '缺逐句拆解' });
+  }
 }
 
 let total = 0;

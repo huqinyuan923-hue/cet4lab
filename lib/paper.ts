@@ -43,7 +43,7 @@ export function normOptions(q: Question): NormOption[] {
 
 /** 有些选项字符串自带 "A) xxx" 前缀，剥离以保证渲染一致 */
 export function stripPrefix(s: string): string {
-  return s.replace(/^\s*[A-P][).、]\s*/, '').trim();
+  return s.replace(/^\s*[A-Z][).、]\s*/, '').trim();
 }
 
 /** 正确答案的展示文本 */
@@ -72,10 +72,29 @@ export function findSentence(passage: string, word: string): string | undefined 
   return s ? truncate(s.trim(), 260) : undefined;
 }
 
-/** 长篇阅读原文按 "A) " 段落标记切分 */
+/** 取出含 `__(no)__` 空位的那一句：2015–2019 旧卷的 cloze stem 是空的，错题本需要语境 */
+export function clozeSentence(passage: string, no: number): string {
+  if (!passage) return '';
+  const flat = passage.replace(/\s+/g, ' ');
+  const blank = new RegExp(`_{0,}\\(${no}\\)_{1,}`);
+  const sentence = (flat.match(/[^.!?]+[.!?]*/g) ?? []).find((s) => blank.test(s));
+  return sentence ? truncate(sentence.trim(), 260) : '';
+}
+
+/** 展示用题干：空 stem 时按题型兜底，避免错题本出现空白题面 */
+export function stemFor(q: Question): string {
+  if (q.stem?.trim()) return q.stem;
+  return q.part === 'cloze' ? clozeSentence(q.passage || '', q.no) : '';
+}
+
+/**
+ * 长篇阅读原文按 "A) " 段落标记切分。
+ * 字母表必须到 Z：2015-06-3 有 A–Q 共 17 段，用 [A-P] 会把 Q 段整段吞掉，
+ * 而 Q 恰好是一道题的正确答案，页面上就变成「答案无处可寻」。
+ */
 export function matchingParagraphs(passage: string): { key: string; text: string }[] {
   const out: { key: string; text: string }[] = [];
-  const re = /^([A-P])\)\s*/;
+  const re = /^([A-Z])\)\s*/;
   let cur: { key: string; text: string } | null = null;
   for (const line of passage.split('\n')) {
     const m = line.match(re);

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { AudioEntry, Paper, PaperMeta, Progress, Question } from '@/lib/types';
-import { EXAM_SECONDS, PART_LABEL, PART_ORDER, fmtTime, scorePaper } from '@/lib/paper';
+import { EXAM_SECONDS, PART_LABEL, PART_ORDER, fmtTime, scorePaper, stemFor } from '@/lib/paper';
 import {
   addCheckin,
   addMistakes,
@@ -218,13 +218,14 @@ export default function PaperRunner({ meta, initialMode = 'exam' }: { meta: Pape
         no: q.no,
         part: q.part,
         partName: q.partName,
-        stem: q.stem,
+        stem: stemFor(q),
         stemZh: q.stemZh,
         userAnswer: answers[String(q.no)] ?? null,
         correctAnswer: q.answer,
         options: q.options ?? null,
         optionsZh: q.optionsZh ?? null,
         paraOptions: q.paraOptions,
+        wordBank: q.wordBank,
         anchor: q.anchor,
         explain: q.explain ?? null,
         addedAt: Date.now(),

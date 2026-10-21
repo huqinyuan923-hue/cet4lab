@@ -172,10 +172,14 @@ function MistakeCard({
     options: m.options,
     optionsZh: m.optionsZh,
     paraOptions: m.paraOptions,
+    wordBank: m.wordBank,
     answer: m.correctAnswer,
   });
   const answered = picked != null;
   const right = picked === m.correctAnswer;
+  // 选词填空的选项只有字母没有词，用户看不到词库就没法重做，故额外显示单词本身
+  const showWord = m.part === 'cloze';
+  const wordOf = (key?: string | null) => (key ? options.find((o) => o.key === key)?.text : undefined);
 
   return (
     <article className={cn('card p-4', m.mastered && 'opacity-70')}>
@@ -202,8 +206,12 @@ function MistakeCard({
       <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm">
         <span className={cn('rounded-md px-2 py-0.5 text-xs', m.userAnswer === m.correctAnswer ? 'bg-ok/12 text-ok' : 'bg-bad/12 text-bad')}>
           你选 {m.userAnswer ?? '—'}
+          {showWord && m.userAnswer && wordOf(m.userAnswer) ? ` ${wordOf(m.userAnswer)}` : ''}
         </span>
-        <span className="rounded-md bg-ok/12 px-2 py-0.5 text-xs text-ok">正确 {m.correctAnswer}</span>
+        <span className="rounded-md bg-ok/12 px-2 py-0.5 text-xs text-ok">
+          正确 {m.correctAnswer}
+          {showWord && wordOf(m.correctAnswer) ? ` ${wordOf(m.correctAnswer)}` : ''}
+        </span>
         {showZh && m.anchor && <span className="chip">大意：{m.anchor}</span>}
       </div>
 
@@ -228,6 +236,7 @@ function MistakeCard({
                   title={o.text}
                 >
                   {o.key}
+                  {showWord && <span className="ml-1 text-xs opacity-80">{o.text}</span>}
                 </button>
               );
             })}

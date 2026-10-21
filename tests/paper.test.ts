@@ -10,6 +10,7 @@ import {
   LETTERS,
   PART_LABEL,
   PART_ORDER,
+  clozeSentence,
   clozeTokens,
   correctTextFor,
   findSentence,
@@ -21,6 +22,7 @@ import {
   pieceForQuestion,
   pieceQuestionRange,
   scorePaper,
+  stemFor,
   stripPrefix,
   truncate,
 } from '../lib/paper.ts';
@@ -48,11 +50,11 @@ test('选项归一：选词填空取词库、长篇阅读取段落集', () => {
   assert.deepEqual(matching.map((x) => x.text), ['A 段', 'G 段']);
 });
 
-test('stripPrefix 只吃行首的 ASCII 选项前缀，不吃正文里的字母', () => {
+test('stripPrefix 只吃行首的字母选项前缀，不吃正文里的字母', () => {
   assert.equal(stripPrefix('  C) 单词 '), '单词');
   assert.equal(stripPrefix('D、四项'), '四项');
   assert.equal(stripPrefix('P1. 段落编号不是选项前缀'), 'P1. 段落编号不是选项前缀');
-  assert.equal(stripPrefix('Q) 超出 A-P 范围'), 'Q) 超出 A-P 范围');
+  assert.equal(stripPrefix('Q) 17 段卷也要剥'), '17 段卷也要剥');
   assert.equal(stripPrefix('见 A) 项的对照'), '见 A) 项的对照');
 });
 
@@ -88,6 +90,18 @@ test('matchingParagraphs：按 A) B) 切段并保留续行', () => {
   assert.equal(ps[0].text, 'first\ncont line');
   assert.equal(ps[1].text, 'second');
   assert.deepEqual(matchingParagraphs('没有段落标记的文本'), []);
+  // 段落字母表必须到 Z：2015-06-3 是 A–Q 共 17 段，Q 还是其中一道题的答案
+  assert.deepEqual(matchingParagraphs('Q) 第十七段').map((p) => p.key), ['Q']);
+});
+
+test('stemFor：cloze 空题干时从原文还原含空位的那句', () => {
+  const passage = 'They can be __(26)__ resources. And parents make __(27)__ teachers of traditions. The end.';
+  assert.equal(stemFor(q({ part: 'cloze', no: 27, stem: '', passage })), 'And parents make __(27)__ teachers of traditions.');
+  assert.equal(stemFor(q({ part: 'cloze', no: 27, stem: '  已有题干 ', passage })), '  已有题干 ', '已有题干时原样返回');
+  assert.equal(stemFor(q({ part: 'cloze', no: 99, stem: '', passage })), '', '原文里没有该空位时返回空串');
+  assert.equal(stemFor(q({ part: 'reading', no: 50, stem: '', passage })), '', '非 cloze 不兜底');
+  assert.equal(clozeSentence(passage, 26), 'They can be __(26)__ resources.');
+  assert.equal(clozeSentence('', 26), '');
 });
 
 test('numberedParagraphs：剥掉 P1 前缀，clozeTokens：按 __(n)__ 切', () => {

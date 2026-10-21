@@ -113,6 +113,8 @@ export interface Mistake {
   options?: string[] | null;
   optionsZh?: string[] | null;
   paraOptions?: string[];
+  /** 选词填空题必须带上词库，否则错题本既无题干语境也无可选项 */
+  wordBank?: Record<string, string>;
   anchor?: string;
   explain?: Record<string, string> | null;
   addedAt: number;
