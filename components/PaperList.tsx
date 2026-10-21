@@ -83,7 +83,12 @@ export default function PaperList({ metas }: { metas: PaperMeta[] }) {
             { value: 'done', label: `已完成 ${counts.done}` },
           ]}
         />
-        <select value={year} onChange={(e) => setYear(e.target.value)} className="field w-auto py-1.5 text-sm">
+        <select
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          className="field w-auto py-1.5 text-sm"
+          aria-label="按年份筛选"
+        >
           <option value="all">全部年份</option>
           {years.map((y) => (
             <option key={y} value={y}>
