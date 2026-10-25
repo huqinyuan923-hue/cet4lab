@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/listen/:path*",
+      "destination": "https://listening.lazynote.cn/cet4/:path*"
+    },
+    {
+      "source": "/cet4/:path*",
+      "destination": "https://listening.lazynote.cn/cet4/:path*"
+    }
+  ]
+}

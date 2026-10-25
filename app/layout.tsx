@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import { EntranceOverlay } from '@/components/entrance-overlay';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://cet4.adcakeyuan.top'),
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://listening.lazynote.cn" />
       </head>
       <body className="min-h-screen">
+        <EntranceOverlay />
         <SiteHeader />
         <main className="mx-auto w-full max-w-content px-4 py-5 sm:px-6 sm:py-7">{children}</main>
         <SiteFooter />
