@@ -54,6 +54,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(sessionStorage.getItem('boot-seen')){document.documentElement.dataset.boot='done'}else{sessionStorage.setItem('boot-seen','1')}}catch(e){}`,
+          }}
+        />
         {/* Safari 直连音频源站：提前建连可减少首播等待 */}
         <link rel="preconnect" href="https://listening.lazynote.cn" crossOrigin="" />
         <link rel="dns-prefetch" href="https://listening.lazynote.cn" />
